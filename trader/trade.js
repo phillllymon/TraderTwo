@@ -1,9 +1,12 @@
 const { CREDS } = require("../CREDS");
 
+// NOTE: When you switch, you must also get new creds
 // const url = "https://api.alpaca.markets/v2/orders";         // live trading
 const url = "https://paper-api.alpaca.markets/v2/orders";   // paper trading
 
+
 // main
+
 // getQuotes(["JBLU", 'GFAIW', 'CLSKW', 'FGMCR',
 // 'VSA',   'FAASW', 'TALKW',]).then((quotes) => {
 //     console.log(quotes);
@@ -24,7 +27,17 @@ const url = "https://paper-api.alpaca.markets/v2/orders";   // paper trading
 //     });
 // });
 
-buyEvenlySplit([
+// buyEvenlySplit([
+//     'GFAIW', 'CLSKW', 'FGMCR',
+//     'VSA',   'FAASW', 'TALKW',
+//     'STSSW', 'DHAI',  'SDSTW',
+//     'GGROW', 'GRABW', 'KWMWW',
+//     'CXAIW', 'RNWWW', 'ARBEW',
+//     'SHOTW', 'NXLIW', 'ANTE',
+//     'AMPGW', 'MOBBW', 'LNZAW'
+// ], 10000);
+
+getQuotes([
     'GFAIW', 'CLSKW', 'FGMCR',
     'VSA',   'FAASW', 'TALKW',
     'STSSW', 'DHAI',  'SDSTW',
@@ -32,7 +45,21 @@ buyEvenlySplit([
     'CXAIW', 'RNWWW', 'ARBEW',
     'SHOTW', 'NXLIW', 'ANTE',
     'AMPGW', 'MOBBW', 'LNZAW'
-  ], 10000);
+]).then((quotesObj) => {
+    const info = {};
+    Object.keys(quotesObj.quotes).forEach((sym) => {
+        const ask = quotesObj.quotes[sym].ap;
+        const bid = quotesObj.quotes[sym].bp;
+        info[sym] = {
+            sym,
+            ask,
+            bid,
+            spread: (ask - bid) / ask
+        }
+    });
+    console.log(info);
+});
+
 // end main
 
 function buyEvenlySplit(syms, amt) {

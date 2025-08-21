@@ -32,6 +32,16 @@ function findRValue(x, y) {
     // throw new Error('Arrays must have the same length');
   }
 
+  // EXP use score method - return fraction of direct matches
+  let answer = 0;
+  x.forEach((val, i) => {
+    if (val === y[i]) {
+        answer += 1;
+    }
+  });
+  return answer / x.length;
+  // END EXP
+
   const n = x.length;
 
   // Sum of x, y, x^2, y^2, and xy

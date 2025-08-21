@@ -1,35 +1,86 @@
 const { fetchDaysAllStocks } = require("./fetchDays");
 const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
 
-const startDate = "2025-04-15";
-const endDate = "2025-08-15";
+let startDate = "2024-08-01";
+let endDate = "2025-08-25";
 
-const lookback = 40;
-const rThreshold = 0.1;
-// const upDownThreshold = 3;
-const upDownThreshold = 1;  // temp while I experiment with higher price stocks
+let lookback = 40;
+let rThreshold = 0.55;   // NOTE: r is currently matching fraction, not r-value. See util.js
+let upDownThreshold = 4;   // WAS 8 before run (that's the graph)
+let maxUpDown = false;
 
-const params = {
+let params = {
+    useCache: true,
     exchange: "NASDAQ",
-    // maxCurrentPrice: 0.5,
+    // maxCurrentPrice: 0.06,
     // minCurrentPrice: 0.05,
     // maxEverPrice: 0.5,
     // minEverPrice: 0.01,
-    maxStartPrice: 0.5,      // this was standard!!
-    minStartPrice: 0.05      // this was standard!!
-    // maxStartPrice: 50,
-    // minStartPrice: 49
+    maxStartPrice: 0.5,
+    minStartPrice: 0.05,
+    // maxStartPrice: 0.5,  // this was standard!!
+    // minStartPrice: 0.05,   // this was standard!!
+    // minStartVol: 1000,
 };
 
 // fetchDays(["GOOG","APPL"], startDate, endDate).then((res) => {
 fetchDaysAllStocks(startDate, endDate, params).then((res) => {
     const dayGroups = daysDataToDayGroupsRaw(res);
 
+    // EXP - buy and hold all
+    // const firstDay = dayGroups[0];
+    // const lastDay = dayGroups[dayGroups.length - 1];
+    // const firstSyms = Object.keys(firstDay);
+    // const lastSyms = Object.keys(lastDay);
+    // let newSyms = [];
+    // let missingSyms = [];
+    // firstSyms.forEach((sym) => {
+    //     if (!lastSyms.includes((sym))) {
+    //         missingSyms.push(sym);
+    //     }
+    // });
+    // lastSyms.forEach((sym) => {
+    //     if (!firstSyms.includes((sym))) {
+    //         newSyms.push(sym);
+    //     }
+    // });
+    // const symsToUse = [];
+    // firstSyms.forEach((sym) => {
+    //     if (!missingSyms.includes((sym))) {
+    //         symsToUse.push(sym);
+    //     }
+    // });
+    // let firstPriceSum = 0;
+    // let lastPriceSum = 0;
+    // symsToUse.forEach((sym) => {
+    //     firstPriceSum += firstDay[sym].open;
+    //     lastPriceSum += lastDay[sym].price;
+    // });
+    // const diff = lastPriceSum - firstPriceSum;
+    // const fraction = 1.0 * diff / firstPriceSum;
+    // const endAmt = 100 * (1.0 + fraction);
+    // console.log(symsToUse.length);
+    // console.log(endAmt);
+    // console.log("***");
+    // let totalFirst = 0;
+    // firstSyms.forEach((sym) => {
+    //     totalFirst += firstDay[sym].open;
+    // });
+    // const newDiff = lastPriceSum - totalFirst;
+    // const newFraction = 1.0 * newDiff / totalFirst;
+    // const newEndAmt = 100 * (1.0 + newFraction);
+    // console.log(newEndAmt);
+    // throw("fit");
+    // END EXP
+
+
     const numSuitableSymsDaily = [];
     const numOtherSymsDaily = [];
     const aveSuitableFractionDaily = [];
     const aveOtherFractionDaily = [];
     const numMatchingDaysDaily = [];
+
+    const highScores = [];
     
     let amt = 100;
     const amts = [100];
@@ -75,18 +126,20 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
         let sumSuitableTomorrowFractions = 0;
         let sumOtherTomorrowFractions = 0;
         let numMatchingDays = 0;
+        const suitableSyms = [];
+        
 
-        const todayCode = makeCodeFromDayGroup(restrictDayGroup(todayDayGroup, syms));
+        const todayCode = rThreshold > -1 ? makeCodeFromDayGroup(restrictDayGroup(todayDayGroup, syms)) : [1];
         const symUpDowns = {};
         syms.forEach((sym) => {
             symUpDowns[sym] = 0;
         });
 
-        for (let j = 2; j < lookback; j++) {  
+        for (let j = 1; j < lookback; j++) {  
 
             const thisDayGroup = dayGroups[i - j];
-            const thisCode = makeCodeFromDayGroup(restrictDayGroup(thisDayGroup, syms));  
-            const thisR = findRValue(thisCode, todayCode);
+            const thisCode = rThreshold > -1 ? makeCodeFromDayGroup(restrictDayGroup(thisDayGroup, syms)) : [1];  
+            const thisR = rThreshold > -1 ? findRValue(thisCode, todayCode) : 1;
             if (thisR > rThreshold) {
                 numMatchingDays += 1;
             }
@@ -95,7 +148,7 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
                 if (thisR > rThreshold) {
                     const nextDayGroup = dayGroups[i - j + 1];
                     if (nextDayGroup[sym].price > nextDayGroup[sym].open) {  ////////////////
-                    // if (nextDayGroup[sym].price > todayDayGroup[sym].price) {
+                    // if (nextDayGroup[sym].price > todayDayGroup[sym].price) {   /////
                         symUpDowns[sym] += 1;
                     } else {
                         symUpDowns[sym] -= 1;
@@ -106,30 +159,55 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
 
         syms.forEach((sym) => {
             const todayClose = todayDayGroup[sym].price;
-            const tomorrowOpen = lastDay ? false : tomorrowDayGroup[sym].open;
+            const tomorrowOpen = lastDay ? false : tomorrowDayGroup[sym].open;  ////////////////
+            // const tomorrowOpen = lastDay ? false : todayDayGroup[sym].price;    /////
             const tomorrowClose = lastDay ? false : tomorrowDayGroup[sym].price;
             // console.log(symUpDowns);
             if (symUpDowns[sym] > upDownThreshold) {
-                const todayClose = todayDayGroup[sym].price;
-                if (lastDay) {
-                    lastDaySyms.push(sym);
-                } else {
-                    numSuitableSyms += 1;
-                    const tomorrowChange = tomorrowClose - tomorrowOpen;
-                    const tomorrowFraction = 1.0 * tomorrowChange / todayClose;
-                    sumSuitableTomorrowFractions += tomorrowFraction;
+                if (!maxUpDown || symUpDowns[sym] < maxUpDown) {
+                    const todayClose = todayDayGroup[sym].price;
+                    suitableSyms.push(sym);
+                    if (lastDay) {
+                        lastDaySyms.push(sym);
+                    } else {
+                        numSuitableSyms += 1;
+                        const tomorrowChange = tomorrowClose - tomorrowOpen;
+                        const tomorrowFraction = 1.0 * tomorrowChange / tomorrowOpen;
+                        sumSuitableTomorrowFractions += tomorrowFraction;
+                    }
                 }
             }
 
             if (!lastDay) {
                 numOtherSyms += 1;
                 const tomorrowChange = tomorrowClose - tomorrowOpen;
-                const tomorrowFraction = 1.0 * tomorrowChange / todayClose;
+                const tomorrowFraction = 1.0 * tomorrowChange / tomorrowOpen;
                 sumOtherTomorrowFractions += tomorrowFraction;
             }
         });
 
-        const aveSuitableFraction = numSuitableSyms > 0 ? sumSuitableTomorrowFractions / numSuitableSyms : 0;
+
+        let aveSuitableFraction = numSuitableSyms > 0 ? sumSuitableTomorrowFractions / numSuitableSyms : 0;
+
+        // EXP - overrides aveSuitableFraction!!!!!
+        // let highScore = 0;
+        // let bestSym = false;
+        // let bestFraction = false;
+        // if (!lastDay) {
+        //     syms.forEach((sym) => {
+        //         const thisScore = symUpDowns[sym];
+        //         if (thisScore > highScore) {
+        //             highScore = thisScore;
+        //             bestSym = sym;
+        //             bestFraction = 1.0 * (tomorrowDayGroup[sym].price - tomorrowDayGroup[sym].open) / tomorrowDayGroup[sym].price;
+        //         }
+        //     });
+        // }
+        // highScores.push(highScore);
+        // if (bestSym) {
+        //     aveSuitableFraction = bestFraction;
+        // }
+        // END EXP
 
         if (!lastDay) {
 
@@ -161,6 +239,9 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
     console.log(aveSuitableFractionDaily, arrAve(aveSuitableFractionDaily));
     console.log("other fractions daily:");
     console.log(aveOtherFractionDaily, arrAve(aveOtherFractionDaily));
+
+    console.log("high scores:");
+    console.log(highScores, arrAve(highScores));
     
     console.log("*******");
     console.log("*******");
@@ -193,6 +274,31 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
     // aveSuitableFractionDaily.forEach((n) => {
     //     console.log(n);
     // });
+
+    // EXP - buy and hold all syms
+    console.log("-----------------");
+    console.log("BUY AND HOLD");
+    
+    const syms = Object.keys(dayGroups[0]);
+    let firstPriceSum = 0;
+    let lastPriceSum = 0;
+    let numMissing = 0;
+    const lastDayGroup = dayGroups[dayGroups.length - 1];
+    syms.forEach((sym) => {
+        firstPriceSum += dayGroups[0][sym].price;
+        if (lastDayGroup[sym]) {
+            lastPriceSum += lastDayGroup[sym].price;
+        } else {
+            // console.log("MISSING " + sym);
+            numMissing += 1;
+        }
+    });
+    const diff = lastPriceSum - firstPriceSum;
+    const fraction = 1.0 * diff / firstPriceSum;
+    
+    console.log("num syms: " + syms.length, " missing: " + numMissing);
+    console.log("end amt: " + 100.0 * (1.0 + fraction));
+    // END EXP
 });
 
 function makeCodeFromDayGroup(dayGroup) {
