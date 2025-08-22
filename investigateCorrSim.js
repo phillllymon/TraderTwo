@@ -1,7 +1,7 @@
 const { fetchDaysAllStocks } = require("./fetchDays");
 const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
 
-let startDate = "2024-08-01";
+let startDate = "2025-03-01";
 let endDate = "2025-08-25";
 
 let lookback = 40;
@@ -16,8 +16,8 @@ let params = {
     // minCurrentPrice: 0.05,
     // maxEverPrice: 0.5,
     // minEverPrice: 0.01,
-    maxStartPrice: 0.5,
-    minStartPrice: 0.05,
+    maxStartPrice: 1,
+    minStartPrice: 0.25,
     // maxStartPrice: 0.5,  // this was standard!!
     // minStartPrice: 0.05,   // this was standard!!
     // minStartVol: 1000,
@@ -277,7 +277,7 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
 
     // EXP - buy and hold all syms
     console.log("-----------------");
-    console.log("BUY AND HOLD");
+    console.log("BUY AND HOLD - " + dayGroups.length + " days");
     
     const syms = Object.keys(dayGroups[0]);
     let firstPriceSum = 0;
