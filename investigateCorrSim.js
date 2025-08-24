@@ -1,12 +1,12 @@
 const { fetchDaysAllStocks } = require("./fetchDays");
 const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
 
-let startDate = "2025-03-01";
-let endDate = "2025-08-25";
+let startDate = "2025-05-18";
+let endDate = "2025-08-23";
 
 let lookback = 40;
-let rThreshold = 0.55;   // NOTE: r is currently matching fraction, not r-value. See util.js
-let upDownThreshold = 4;   // WAS 8 before run (that's the graph)
+let rThreshold = 0.50;   // NOTE: r is currently matching fraction, not r-value. See util.js
+let upDownThreshold = 6;   // WAS 8 before run (that's the graph)
 let maxUpDown = false;
 
 let params = {
@@ -18,8 +18,8 @@ let params = {
     // minEverPrice: 0.01,
     maxStartPrice: 1,
     minStartPrice: 0.25,
-    // maxStartPrice: 0.5,  // this was standard!!
-    // minStartPrice: 0.05,   // this was standard!!
+    // maxStartPrice: 0.5,
+    // minStartPrice: 0.05,
     // minStartVol: 1000,
 };
 

@@ -5,25 +5,25 @@ const { findBestSym, findBestSymWithPeriod } = require("./analyzer");
 const { findHighCorrelations, findDoubleHighCorrelations } = require("./correlations");
 
 const syms = [
-    "MSFT",
-    "NVDA",
-    "AAPL",
-    "AVGO",
-    "AMZN",
-    "META",
-    "COST",
-    "TSLA",
-    "GGLL",
-    "GOOG",
-    "TQQQ",
-    "SPYU",
-    "GLD",
-    "QQQ",
-    "QLD",
-    "SPY",
-    "NFLX",
-    "JBLU",
-    "LUV",
+    // "MSFT",
+    // "NVDA",
+    // "AAPL",
+    // "AVGO",
+    // "AMZN",
+    // "META",
+    // "COST",
+    // "TSLA",
+    // "GGLL",
+    // "GOOG",
+    // "TQQQ",
+    // "SPYU",
+    // "GLD",
+    // "QQQ",
+    // "QLD",
+    // "SPY",
+    // "NFLX",
+    // "JBLU",
+    // "LUV",
 
     // "GBTC",
 
@@ -60,19 +60,65 @@ const syms = [
     // "NU",
     // "AMZN",
     // "VALE"
+
+    "TSLA", "AAPL", "MSTR",
+  "KGC", "KFY", "GOOGL", "MU",
+  "DIS", "PEGA", "VRT", "NTCT", "PD",
+  "INTU", "URI",
+  "ADT", "MCK", "SGHC",
+  "LDOS"
+
 ];
 
-const startDate = "2025-06-02";
-const endDate = "2025-08-03";
+const dayRecs = [
+    ["TSLA", "AAPL", "MSTR"],                  // Mon, Jul 7 – pre-market movers :contentReference[oaicite:0]{index=0}
+  [],                                       // Tue, Jul 8 – no clear daily picks found
+  [],                                       // Wed, Jul 9
+  [],                                       // Thu, Jul 10
+  [],                                       // Fri, Jul 11
+  ["KGC", "KFY", "GOOGL", "MU"],           // Mon, Jul 14 – weekly picks :contentReference[oaicite:1]{index=1}
+  ["DIS", "PEGA", "VRT", "NTCT", "PD"],    // Tue, Jul 15 – weekly picks :contentReference[oaicite:2]{index=2}
+  ["INTU", "URI"],                         // Wed, Jul 16 – Zacks daily swap :contentReference[oaicite:3]{index=3}
+  [],                                       // Thu, Jul 17
+  [],                                       // Fri, Jul 18
+  ["ADT", "MCK", "SGHC"],                  // Mon, Jul 21 – weekly picks :contentReference[oaicite:4]{index=4}
+  [],                                       // Tue, Jul 22
+  [],                                       // Wed, Jul 23
+  [],                                       // Thu, Jul 24
+  ["LDOS"]   
+];
+
+const startDate = "2025-07-07";
+const endDate = "2025-07-25";
 
 console.log("******************");
 // main
 
-fetchDays(syms, startDate, endDate).then((res) => {
+fetchDays(syms, startDate, endDate, false, false, {}).then((res) => {
     const dayGroups = daysDataToDayGroups(res);
     
-    runDaily(dayGroups, 10);
-    // runDailyForTestPeriod(dayGroups, 250, 10, 0.5);
+
+    let amt = 100;
+    dayRecs.forEach((syms, idx) => {
+        console.log(`DAY ${idx + 1}:`);
+        const dayData = dayGroups[idx];
+        let percentSum = 0;
+        syms.forEach((sym) => {
+            if (dayData[sym]) {
+                const open = dayData[sym].open;
+                const close = dayData[sym].price;
+                const percent = 100.0 * (open - close) / open;
+                // console.log(sym, percent);
+                percentSum += percent;
+            }
+        });
+        const avePercent = syms.length > 0 ? percentSum / syms.length : 0;
+        console.log(avePercent);
+        amt *= (1 + (avePercent / 100.0));
+    });
+    console.log("END AMT: " + amt);
+    
+    
 
 });
 

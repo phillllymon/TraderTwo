@@ -2,7 +2,7 @@ const { cacheBars, fetchBars, cacheLastResult, fetchLastResult, doesLastQueryMat
 const { CREDS } = require("./CREDS");
 
 function fetchDays(theSyms, startTime, endTime, pageToken = false, barsSoFar, params) {
-    if (params.useCache) {
+    if (params && params.useCache) {
         if (doesLastQueryMatch(theSyms, startTime, endTime, params)) {
             console.log("queries match");
             return new Promise((resolve) => {
@@ -45,6 +45,7 @@ function fetchDays(theSyms, startTime, endTime, pageToken = false, barsSoFar, pa
         }).then((res) => {
             res.json().then((r) => {
                 theSyms.forEach((sym) => {
+                    // console.log(r);
                     if (r.bars[sym]) {
                         if (filterByParams(r.bars[sym], params)) {
                             barsSoFar[sym].push(...r.bars[sym].map((rawBar) => {

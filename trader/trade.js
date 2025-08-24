@@ -27,38 +27,26 @@ const url = "https://paper-api.alpaca.markets/v2/orders";   // paper trading
 //     });
 // });
 
-// buyEvenlySplit([
-//     'GFAIW', 'CLSKW', 'FGMCR',
-//     'VSA',   'FAASW', 'TALKW',
-//     'STSSW', 'DHAI',  'SDSTW',
-//     'GGROW', 'GRABW', 'KWMWW',
-//     'CXAIW', 'RNWWW', 'ARBEW',
-//     'SHOTW', 'NXLIW', 'ANTE',
-//     'AMPGW', 'MOBBW', 'LNZAW'
-// ], 10000);
+buyEvenlySplit([
+    'ANTE', 'ADIL', 'SGLY', 'ELPW'
+], 40000);
 
-getQuotes([
-    'GFAIW', 'CLSKW', 'FGMCR',
-    'VSA',   'FAASW', 'TALKW',
-    'STSSW', 'DHAI',  'SDSTW',
-    'GGROW', 'GRABW', 'KWMWW',
-    'CXAIW', 'RNWWW', 'ARBEW',
-    'SHOTW', 'NXLIW', 'ANTE',
-    'AMPGW', 'MOBBW', 'LNZAW'
-]).then((quotesObj) => {
-    const info = {};
-    Object.keys(quotesObj.quotes).forEach((sym) => {
-        const ask = quotesObj.quotes[sym].ap;
-        const bid = quotesObj.quotes[sym].bp;
-        info[sym] = {
-            sym,
-            ask,
-            bid,
-            spread: (ask - bid) / ask
-        }
-    });
-    console.log(info);
-});
+// getQuotes([
+//     'ANTE', 'ADIL', 'SGLY', 'ELPW'
+// ]).then((quotesObj) => {
+//     const info = {};
+//     Object.keys(quotesObj.quotes).forEach((sym) => {
+//         const ask = quotesObj.quotes[sym].ap;
+//         const bid = quotesObj.quotes[sym].bp;
+//         info[sym] = {
+//             sym,
+//             ask,
+//             bid,
+//             spread: (ask - bid) / ask
+//         }
+//     });
+//     console.log(info);
+// });
 
 // end main
 
