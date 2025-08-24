@@ -28,6 +28,9 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
 
     const symsToUse = Object.keys(dayGroups[0]);
     fetchNews(symsToUse, startDate, endDate).then((news) => {
+
+        // const newsDays = groupArticlesByDay(news);
+
         createDaySymbolsChartFromNews(news).then((daySymChart) => {
 
             console.log(daySymChart);
@@ -98,9 +101,88 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
                 console.log(n);
             });
         });
+        
+        // createDaySymbolsChartFromNews(news).then((daySymChart) => {
+
+        //     console.log(daySymChart);
+
+        //     let amt = 100;
+        //     let keepAmt = 100;
+        //     const amts = [100];
+        //     const keepAmts = [100];
+    
+        //     for (let i = 0; i < dayGroups.length - 1; i++) {
+        //         const today = dayGroups[i];
+        //         const todayDate = today[Object.keys(today)[0]].time.slice(0, 10);
+    
+        //         const tomorrow = dayGroups[i + 1];
+        //         // const tomorrow = dayGroups[i];
+    
+        //         const promisingSyms = [];
+        //         if (daySymChart[todayDate]) {
+        //             Object.keys(daySymChart[todayDate]).forEach((sym) => {
+        //                 if (daySymChart[todayDate][sym] > articleThreshold) {
+        //                     promisingSyms.push(sym);
+        //                 }
+        //             });
+        //         }
+    
+        //         const symsToBuy = [];
+        //         promisingSyms.forEach((sym) => {
+        //             if (tomorrow[sym]) {
+        //                 symsToBuy.push(sym);
+        //             }
+        //         });
+    
+        //         let buySum = 0;
+        //         let sellSum = 0;
+    
+        //         symsToBuy.forEach((sym) => {
+        //             buySum += Number.parseFloat(tomorrow[sym].open);
+        //             sellSum += Number.parseFloat(tomorrow[sym].price);
+        //         });
+    
+        //         let keepBuySum = 0;
+        //         let keepSellSum = 0;
+    
+        //         Object.keys(tomorrow).forEach((sym) => {
+        //             keepBuySum += Number.parseFloat(tomorrow[sym].open);
+        //             keepSellSum += Number.parseFloat(tomorrow[sym].price);
+        //         });
+    
+        //         const keepRatio = keepBuySum > 0 ? 1.0 * keepSellSum / keepBuySum : 1;
+        //         const aiRatio = buySum > 0 ? 1.0 * sellSum / buySum : 1;
+    
+        //         amt *= aiRatio;
+        //         keepAmt *= keepRatio;
+        //         amts.push(amt);
+        //         keepAmts.push(keepAmt);
+    
+        //         console.log(todayDate, 100 * aiRatio, `(${100 * keepRatio})`, `${symsToBuy.length} syms`);
+        //     }
+    
+        //     console.log("**********");
+        //     keepAmts.forEach((n) => {
+        //         console.log(n);
+        //     });
+        //     console.log("*****************");
+        //     console.log("********* ^keep above^ ********");
+        //     console.log("*****************");
+        //     amts.forEach((n) => {
+        //         console.log(n);
+        //     });
+        // });
     });
 
 });
+
+function groupArticlesByDay(news) {
+    const answer = [];
+
+    return answer;
+}
+
+
 
 function createDaySymbolsChartFromNews(news) {
     return new Promise((resolve) => {

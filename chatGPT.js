@@ -1,4 +1,7 @@
-const openAiKey = "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";
+const { CREDS } = require("./CREDS");
+
+
+const openAiKey = CREDS.openAiKey;
 const OpenAI = require("openai");
 
 const openai = new OpenAI({
