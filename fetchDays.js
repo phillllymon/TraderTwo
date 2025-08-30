@@ -169,8 +169,17 @@ function retrieveAllSymbols(params, startTime, endTime) {
             res.json().then((r) => {
                 const symbols = [];
                 r.forEach((asset) => {
+                    // console.log(asset);
                     if (!asset.symbol.includes("/")) {
-                        symbols.push(asset.symbol);
+                        let meetsRequirements = true;
+                        params.assetRequirements.forEach((requirement) => {
+                            if (!asset[requirement]) {
+                                meetsRequirements = false;
+                            }
+                        });
+                        if (meetsRequirements) {
+                            symbols.push(asset.symbol);
+                        }
                     }
                 });
                 // if (false) {

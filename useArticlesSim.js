@@ -4,10 +4,11 @@ const { fetchDaysAllStocks } = require("./fetchDays");
 const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
 
 
-let startDate = "2025-06-18";
-let endDate = "2025-08-23";
+let startDate = "2025-07-01";
+let endDate = "2025-08-25";
 
 const articleThreshold = 0;
+const lookBack = 2;
 
 let params = {
     useCache: true,
@@ -16,8 +17,8 @@ let params = {
     // minCurrentPrice: 0.05,
     // maxEverPrice: 0.5,
     // minEverPrice: 0.01,
-    maxStartPrice: 1,
-    minStartPrice: 0.80,
+    maxStartPrice: 100,
+    minStartPrice: 80,
     // maxStartPrice: 0.5,
     // minStartPrice: 0.05,
     // minStartVol: 1000,
@@ -29,78 +30,21 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
     const symsToUse = Object.keys(dayGroups[0]);
     fetchNews(symsToUse, startDate, endDate).then((news) => {
 
-        // const newsDays = groupArticlesByDay(news);
+        const newsDays = groupArticlesByDay(news);
 
-        createDaySymbolsChartFromNews(news).then((daySymChart) => {
+        const simInfo = {
+            amt: 100,
+            keepAmt: 100,
+            amts: [100],
+            keepAmts: [100]
+        };
+        
+        // runDaysRecursive(dayGroups, newsDays, 0, simInfo);
+        runDaysRecursive(dayGroups, newsDays, lookBack - 1, simInfo);
 
-            console.log(daySymChart);
 
-            let amt = 100;
-            let keepAmt = 100;
-            const amts = [100];
-            const keepAmts = [100];
-    
-            for (let i = 0; i < dayGroups.length - 1; i++) {
-                const today = dayGroups[i];
-                const todayDate = today[Object.keys(today)[0]].time.slice(0, 10);
-    
-                const tomorrow = dayGroups[i + 1];
-                // const tomorrow = dayGroups[i];
-    
-                const promisingSyms = [];
-                if (daySymChart[todayDate]) {
-                    Object.keys(daySymChart[todayDate]).forEach((sym) => {
-                        if (daySymChart[todayDate][sym] > articleThreshold) {
-                            promisingSyms.push(sym);
-                        }
-                    });
-                }
-    
-                const symsToBuy = [];
-                promisingSyms.forEach((sym) => {
-                    if (tomorrow[sym]) {
-                        symsToBuy.push(sym);
-                    }
-                });
-    
-                let buySum = 0;
-                let sellSum = 0;
-    
-                symsToBuy.forEach((sym) => {
-                    buySum += Number.parseFloat(tomorrow[sym].open);
-                    sellSum += Number.parseFloat(tomorrow[sym].price);
-                });
-    
-                let keepBuySum = 0;
-                let keepSellSum = 0;
-    
-                Object.keys(tomorrow).forEach((sym) => {
-                    keepBuySum += Number.parseFloat(tomorrow[sym].open);
-                    keepSellSum += Number.parseFloat(tomorrow[sym].price);
-                });
-    
-                const keepRatio = keepBuySum > 0 ? 1.0 * keepSellSum / keepBuySum : 1;
-                const aiRatio = buySum > 0 ? 1.0 * sellSum / buySum : 1;
-    
-                amt *= aiRatio;
-                keepAmt *= keepRatio;
-                amts.push(amt);
-                keepAmts.push(keepAmt);
-    
-                console.log(todayDate, 100 * aiRatio, `(${100 * keepRatio})`, `${symsToBuy.length} syms`);
-            }
-    
-            console.log("**********");
-            keepAmts.forEach((n) => {
-                console.log(n);
-            });
-            console.log("*****************");
-            console.log("********* ^keep above^ ********");
-            console.log("*****************");
-            amts.forEach((n) => {
-                console.log(n);
-            });
-        });
+
+        
         
         // createDaySymbolsChartFromNews(news).then((daySymChart) => {
 
@@ -176,9 +120,144 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
 
 });
 
-function groupArticlesByDay(news) {
-    const answer = [];
+function runDaysRecursive(dayGroups, newsDays, i, simInfo) {
+    console.log("evaluating day " + (i + 1) + " of " + dayGroups.length);
+    return new Promise((resolve) => {
+        const today = dayGroups[i];
+        const tomorrow = dayGroups[i + 1];
 
+        const days = dayGroups.slice(i - (lookBack - 1), i + 1);
+
+        if (!tomorrow) {
+            console.log("days done");
+            simInfo.amts.forEach((n) => {
+                console.log(n);
+            });
+            resolve();
+        } else {
+            const todayDate = today[Object.keys(today)[0]].time.slice(0, 10);
+            const todayArticles = newsDays[todayDate];
+            const symsToPickFrom = Object.keys(today);
+            queryForSymsForDay(todayArticles, symsToPickFrom, days).then((syms) => {
+                let buySum = 0;
+                let sellSum = 0;
+                syms.forEach((sym) => {
+                    if (tomorrow[sym]) {
+                        buySum += Number.parseFloat(tomorrow[sym].open);
+                        sellSum += Number.parseFloat(tomorrow[sym].price);
+                        // buySum += Number.parseFloat(today[sym].open);
+                        // sellSum += Number.parseFloat(today[sym].price);
+                    } else {
+                        console.log("MISSING: " + sym);
+                    }
+                });
+                // const fraction = buySum > 0 ? 1.0 * buySum / sellSum : 1;       // simulating shorting instead
+                const fraction = buySum > 0 ? 1.0 * sellSum / buySum : 1;
+                simInfo.amt *= fraction;
+                simInfo.amts.push(simInfo.amt);
+                console.log(100 * fraction);
+                runDaysRecursive(dayGroups, newsDays, i + 1, simInfo).then(() => {
+                    resolve();
+                });
+            });
+        }
+    });
+}
+
+function queryForSymsForDay(articles, symsToPickFrom, days) {
+    return new Promise((resolve) => {
+        if (!articles) {
+            resolve([]);
+        } else {
+            // const articlesToUse = articles.slice(0, 12);
+            // console.log("total articles: " + articles.length);
+            const articlesToUse = articles.map(articleObj => articleObj.headline);
+            console.log("sending: " + articlesToUse.length + " articles");
+            const dateToUse = articles[0].created_at.slice(0, 10);
+
+            const query = `I'll give you a list of stock symbols and price data for several consecutive days for those symbols. The price data for each day is in
+            the form of a json object with the keys being symbols. Each subobject has data for that symbol like open, high, low, and volume. The closing price for the 
+            day is listed simply as "price." I'd like you to, based on the days of data as well as whatever you know about stock price trends in general,
+            recommend 0-5 of the symbols that would be a promising day trade for the following day. I don't care about long-term outlook, just the next day after the data given
+            when I plan to buy at open and sell at close. Here is the list of symbols: ${JSON.stringify(symsToPickFrom)}
+            and here is the price data: ${JSON.stringify(days)} The price data is a stringified array where each object in the array represents a day. The open, high, low, and close price
+            is listed for each stock for each day. The close price is labeled as "price." Please give me your answer in the form of an array of strings in valid json format. I don't want any
+            explanation or anything else, just the json array.`
+
+            // const query = `I'll give you a list of stock symbols and price data for several consecutive days for those symbols. The price data for each day is in
+            // the form of a json object with the keys being symbols. Each subobject has data for that symbol like open, high, low, and volume. The closing price for the 
+            // day is listed simply as "price." I'd like you to, based on the days of data as well as whatever you know about stock price trends in general,
+            // recommend 0-5 of the symbols that would be a promising day trade for the following day. I don't care about long-term outlook, just the next day after the data given
+            // when I plan to buy at open and sell at close. I will also give you a list of headlines from the last day to aid your evaluation. Here is the list of symbols: ${JSON.stringify(symsToPickFrom)}
+            // and here is the price data: ${JSON.stringify(days)} The price data is a stringified array where each object in the array represents a day. The open, high, low, and close price
+            // is listed for each stock for each day. The close price is labeled as "price." Here are the headlines: ${JSON.stringify(articlesToUse)}. Please give me your answer in the form of an array of strings in valid json format. I don't want any
+            // explanation or anything else, just the json array.`
+
+
+            // const query = `I'll give you a date and a list of stock symbols. I'll also give you price data for the symbols for the specified day and some news headlines for that day.
+            // The price data will be in
+            // the form of a json object with the keys being symbols. Each subobject has data for that symbol like open, high, low, and volume. The closing price for the 
+            // day is listed simply as "price." I'd like you to pretend it is the specified date and look up news or other information
+            // about the stock symbols that would have been available on or before the specified date. Then recommend 1-5 of the symbols as a good day trade for the
+            // following day, based solely on information that was available at the time. I just want to buy at open the following day and sell at close so there is no
+            //  need to consider the long term outlook, just the following day. Please give me your answer in the form of an array of strings in valid json format. I don't want any
+            // explanation or anything else, just the json array. Here's the date: ${dateToUse} and here are the stock symbols: ${JSON.stringify(symsToPickFrom)} and
+            // here is the data for the day: ${JSON.stringify(todayObj)} and here are the headlines: ${JSON.stringify(articlesToUse)}`;
+
+            // const query = `I'm going to give you a bunch of news article headlines from the same day that mention stock ticker symbols. They will be in the form of
+            // a stringified array. I'd like you to read the headlines and suggest 1-5 symbols from the following list
+            //  that would be good to
+            // buy for a day trade the following day. You can only pick symbols that are in this stringified array: ${JSON.stringify(symsToPickFrom)}. Please
+            // make sure you only pick from that list, even if other stocks are mentioned in the headlines!
+            // I don't care about the long term outlooks, just, based on the information in the headlines, which symbols
+            // would be likely to go up the following day. Bear in mind that the headlines are for one day, and we are going to trade the following day, so just
+            // because a headline says a stock increased today doesn't mean it will be a good day trade tomorrow. Pay special attention to anything that sounds
+            // like earnings reports or catalyst events. Please give me your answer in the form of an array of strings in valid json format. I don't want any
+            // explanation or anything else, just the json array.
+            // Here are the headlines: ${JSON.stringify(articlesToUse)}`;
+
+            // const query = `I'm going to give you a bunch of news articles from the same day that mention stock ticker symbols. They will be in the form of
+            // an array of objects with each object containing an article with additional info about the article, including what symbols are mentioned in the
+            // article. The content of the article will also be in the object. I'd like you to read the articles and suggest 1-5 symbols from the following list
+            //  that would be good to
+            // buy for a day trade the following day. You can only pick symbols that are in this stringified array: ${JSON.stringify(symsToPickFrom)}. Please
+            // make sure you only pick from that list, even if other stocks are mentioned in the article!
+            // I don't care about the long term outlooks, just, based on the information in the articles, which symbols
+            // would be likely to go up the following day. Bear in mind that the articles are for one day, and we are going to trade the following day, so just
+            // because an article says a stock increased today doesn't mean it will be a good day trade tomorrow. Pay special attention to anything that sounds
+            // like earnings reports or catalyst events. Please give me your answer in the form of an array of strings in valid json format. I don't want any
+            // explanation or anything else, just the json array. I'm giving you the array of articles as stringified json.
+            // Here are the articles: ${JSON.stringify(articlesToUse)}`;
+
+            // const query = `I'm going to give you a bunch of news articles from the same day that mention stock ticker symbols. They will be in the form of
+            // an array of objects with each object containing an article with additional info about the article, including what symbols are mentioned in the
+            // article. The content of the article will also be in the object. I'd like you to read the articles and suggest 1-5 symbols that would be good to
+            // short the following day. I don't care about the long term outlooks, just, based on the information in the articles, which symbols
+            // would be likely to go down the following day. Bear in mind that the articles are for one day, and we are going to trade the following day, so just
+            // because an article says a stock increased today doesn't mean it will be a good day trade tomorrow. Pay special attention to anything that sounds
+            // like earnings reports or catalyst events. Please give me your answer in the form of an array of strings in valid json format. I don't want any
+            // explanation or anything else, just the json array. I'm giving you the array of articles as stringified json.
+            // Here are the articles: ${JSON.stringify(articlesToUse)}`;
+
+            queryChatGPT(query).then((syms) => {
+                // console.log(syms);
+                const justJSON = syms.split("json").join("").split("`").join("");
+                console.log(justJSON);
+                resolve(JSON.parse(justJSON));
+            });
+        }
+    });
+}
+
+function groupArticlesByDay(news) {
+    const answer = {};
+    news.forEach((articleObj) => {
+        const articleDay = articleObj.created_at.slice(0, 10);
+        if (!answer[articleDay]) {
+            answer[articleDay] = [];
+        }
+        answer[articleDay].push(articleObj);
+    });
     return answer;
 }
 
