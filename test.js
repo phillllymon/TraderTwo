@@ -4,12 +4,12 @@ const { queryChatGPT } = require("./chatGPT");
 const { fetchDaysAllStocks } = require("./fetchDays");
 const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
 
-let startDate = "2024-09-04";
-let endDate = "2025-09-01";
+let startDate = "2023-09-04";
+let endDate = "2024-09-01";
 
 const articleThreshold = 0;
 const lookBack = 2;
-const triggerMoveSize = 0.05;
+const triggerMoveSize = 0.02;
 
 let params = {
     useCache: true,
@@ -19,22 +19,22 @@ let params = {
     // maxEverPrice: 0.5,
     // minEverPrice: 0.01,
     maxStartPrice: 1000,
-    minStartPrice: 30,
+    minStartPrice: 10,
     // maxStartPrice: 0.5,
     // minStartPrice: 0.05,
     // minStartVol: 1000,
     assetRequirements: [
-        "easy_to_borrow",
-        "shortable"
+        // "easy_to_borrow",
+        // "shortable"
     ],
 };
 
-fetchDaysAllStocks(startDate, endDate, params).then((res) => {
+// fetchDaysAllStocks(startDate, endDate, params).then((res) => {
     
-    // const rawFile = fs.readFileSync("./tenToThousand.txt");
-    // const res = JSON.parse(rawFile);
+    const rawFile = fs.readFileSync("./data/tenToThousandShortable23-24.txt");
+    const res = JSON.parse(rawFile);
 
-    // fs.writeFileSync("./tenToThousand.txt", JSON.stringify(res));
+    // fs.writeFileSync("./data/tenToThousandAll23-24.txt", JSON.stringify(res));
 
     // throw("fit");
 
@@ -296,7 +296,7 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
                     }
 
                     tradedSyms.push(sym);
-                    if (!lastDay && score < 2) {
+                    if (!lastDay) {
                         // short
                         if (tomorrow[sym].open > tomorrow[sym].price) {
                             goodTrades += 1;
@@ -353,7 +353,7 @@ fetchDaysAllStocks(startDate, endDate, params).then((res) => {
     console.log("SCORE RESULTS");
     console.log(tradeScores);
 
-});
+// });
 
 
 
