@@ -13,13 +13,13 @@ const scoreThreshold = 2;
 const short = true;
 const buy = true;
 
-const ratioThreshold = 3;
+const ratioThreshold = 1;
 const dataToUse = [
-    "open",
-    "price",
+    // "open",
+    // "price",
     "high",
     "low",
-    "vol"
+    // "vol"
 ];
 
 let params = {
@@ -35,8 +35,8 @@ let params = {
     // minStartPrice: 0.05,
     // minStartVol: 1000,
     assetRequirements: [
-        // "easy_to_borrow",
-        // "shortable"
+        "easy_to_borrow",
+        "shortable"
     ],
 };
 
@@ -70,13 +70,15 @@ function positiveScore(dayGroup, sym) {
     return answer;
 }
 
-fetchRawData("params").then((res) => {
+// fetchRawData("params").then((res) => {
 // fetchRawData("./data/tenToThousandAll23-24.txt").then((res) => {
 // fetchRawData("./data/tenToThousandAll24-25.txt").then((res) => {
-// fetchRawData("./data/tenToThousandShortable23-24.txt").then((res) => {
+// fetchRawData("./data/tenToThousandAll23-25.txt").then((res) => {
+fetchRawData("./data/tenToThousandShortable23-24.txt").then((res) => {
 // fetchRawData("./data/tenToThousandShortable24-25.txt").then((res) => {
+// fetchRawData("./data/tenToThousandShortable23-25.txt").then((res) => {
 
-    fs.writeFileSync("./data/tenToThousandAll23-25.txt", JSON.stringify(res));
+    // fs.writeFileSync("./data/tenToThousandShortable23-25.txt", JSON.stringify(res));
 
     const dayGroups = daysDataToDayGroupsRaw(res);
 
@@ -139,20 +141,20 @@ fetchRawData("params").then((res) => {
                         down: 0
                     }
                 }
-                
-                
 
                 let buyPrice = 0;
                 let sellPrice = 0;
                 if (symCodeLookup[sym][scoreStr].up > 3 || symCodeLookup[sym][scoreStr].down > 3) {
                     // buy
-                    if (buy && symCodeLookup[sym][scoreStr].up > ratioThreshold * symCodeLookup[sym][scoreStr].down) {
+                    // if (buy && symCodeLookup[sym][scoreStr].up > ratioThreshold * symCodeLookup[sym][scoreStr].down) {
+                    if (buy && symCodeLookup[sym][scoreStr].down === 0) {
                         buyPrice = tomorrow[sym].open;
                         sellPrice = tomorrow[sym].price;
                         tradedSyms.push(sym);
                     }
                     // short
-                    if (short && symCodeLookup[sym][scoreStr].up < 1.0 * symCodeLookup[sym][scoreStr].down / ratioThreshold) {
+                    // if (short && symCodeLookup[sym][scoreStr].up < 1.0 * symCodeLookup[sym][scoreStr].down / ratioThreshold) {
+                    if (short && symCodeLookup[sym][scoreStr].up === 0) {
                         sellPrice = tomorrow[sym].open;
                         buyPrice = tomorrow[sym].price;
                         tradedSyms.push(sym);

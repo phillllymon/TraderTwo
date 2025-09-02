@@ -27,9 +27,9 @@ const url = "https://paper-api.alpaca.markets/v2/orders";   // paper trading
 //     });
 // });
 
-buyEvenlySplit([
-    'ANTE', 'ADIL', 'SGLY', 'ELPW'
-], 40000);
+// buyEvenlySplit([
+//     'ANTE', 'ADIL', 'SGLY', 'ELPW'
+// ], 40000);
 
 // getQuotes([
 //     'ANTE', 'ADIL', 'SGLY', 'ELPW'
@@ -118,3 +118,5 @@ function moneyRound(amt) {
     const rounded = Math.round(hundredTimes);
     return rounded / 100;
 }
+
+module.exports = { getQuotes };
