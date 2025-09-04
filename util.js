@@ -1,3 +1,25 @@
+function createSimpleDaysArr(startDate, endDate) {
+    const daysArr = [];
+    let currentDate = new Date(startDate);
+    while (currentDate.getTime() < new Date(endDate).getTime()) {
+        const year = currentDate.getFullYear();
+        let month = currentDate.getMonth() + 1;
+        month = "" + month;
+        if (month.length < 2) {
+            month = "0" + month;
+        }
+        let date = currentDate.getDate();
+        date = "" + date;
+        if (date.length < 2) {
+            date = "0" + date;
+        }
+        daysArr.push(`${year}-${month}-${date}`);
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    // daysArr.push(endDate);
+    return daysArr;
+}
+
 function createDaysQueryArr(startDate, endDate) {
     const daysInfoArr = [];
     let currentDate = new Date(startDate);
@@ -151,5 +173,6 @@ module.exports = {
     daysDataToDayGroupsRaw,
     findRValue,
     createDaysQueryArr,
-    arrAve
+    arrAve,
+    createSimpleDaysArr
 };
