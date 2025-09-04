@@ -5,11 +5,10 @@ const { fetchDaysAllStocks } = require("./fetchDays");
 const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
 const { getQuotes } = require("./trader/trade");
 
-let startDate = "2025-05-01";
-let startSecondDate = "2025-05-07";
-
-let endDate = "2025-09-01";
-let endSecondDate = "2025-09-09";
+const startDate = "2021-08-01";
+const endDate = "2025-09-07";
+const recheckPeriod = 20;
+const checkForPriceDays = 760;
 
 let params = {
     useCache: true,
@@ -17,9 +16,9 @@ let params = {
     // maxCurrentPrice: 0.06,
     // minCurrentPrice: 0.05,
     // maxEverPrice: 0.5,
-    // minEverPrice: 0.01,
-    maxStartPrice: 0.5,
-    minStartPrice: 0.05,
+    // minEverPrice: 0.05,
+    maxStartPrice: 5,
+    minStartPrice: 0.1,
     // maxStartPrice: 0.5,
     // minStartPrice: 0.05,
     // minStartVol: 1000,
@@ -29,32 +28,62 @@ let params = {
     ],
 };
 
-fetchRawData("params", startDate, startSecondDate).then((resA) => {
-    // fetchRawData("params", endDate, endSecondDate).then((resB) => {
-    const aDays = daysDataToDayGroupsRaw(resA);
+fetchRawData("params", startDate, endDate).then((res) => {
+    const days = daysDataToDayGroupsRaw(res);
     
-    const firstDay = aDays[0];
-    
-    const firstSyms = Object.keys(firstDay);
-    getQuotes(firstSyms).then((quotes) => {
+    let amt = 100;
+    const amts = [100];
 
+    for (let i = checkForPriceDays; i < days.length; i += recheckPeriod) {
+        const firstDay = days[i];
+        let lastDay = days[i + recheckPeriod];
+        if (!lastDay) {
+            lastDay = days[days.length - 1];
+        }
         let buySum = 0;
         let sellSum = 0;
+        const missingSyms = [];
+        const firstSyms = Object.keys(firstDay);
 
-        firstSyms.forEach((sym) => {
-            buySum += firstDay[sym].open;
-            sellSum += quotes.quotes[sym].bp;
+        // vet syms that have gone way down
+        const maxPrices = {};      
+        days.slice(0, i).forEach((day) => {
+            Object.keys(day).forEach((sym) => {
+                const price = day[sym].price;
+                if (!maxPrices[sym]) {
+                    maxPrices[sym] = price;
+                } else {
+                    if (price > maxPrices[sym]) {
+                        maxPrices[sym] = price;
+                    }
+                }
+            });
         });
 
-        const tradeRatio = sellSum / buySum;
-        console.log(`${firstSyms.length} syms`);
-        console.log(100 * tradeRatio);
+        const usedSyms = [];
+        firstSyms.forEach((sym) => {
+            // if (!maxPrices[sym] || maxPrices[sym] < 1) {
+            if (maxPrices[sym] && maxPrices[sym] < 1) {
+                buySum += firstDay[sym].price;
+                usedSyms.push(sym);
+                if (lastDay[sym]) {
+                    sellSum += lastDay[sym].price;
+                } else {
+                    missingSyms.push(sym);
+                }
+            }
+        });
+        const tradeRatio = buySum > 0 ? sellSum / buySum : 1;
+        amt *= tradeRatio;
+        amts.push(amt);
+        console.log(missingSyms, usedSyms);
+    }
+
+    amts.forEach((n) => {
+        console.log(n);
     });
-        
-
-        
-
-
+    
+    
 
 });
 
