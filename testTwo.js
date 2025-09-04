@@ -7,7 +7,7 @@ const { getQuotes } = require("./trader/trade");
 
 const startDate = "2021-08-01";
 const endDate = "2025-09-07";
-const recheckPeriod = 20;
+const recheckPeriod = 5;
 const checkForPriceDays = 760;
 
 let params = {
@@ -17,7 +17,7 @@ let params = {
     // minCurrentPrice: 0.05,
     // maxEverPrice: 0.5,
     // minEverPrice: 0.05,
-    maxStartPrice: 5,
+    maxStartPrice: 20,
     minStartPrice: 0.1,
     // maxStartPrice: 0.5,
     // minStartPrice: 0.05,
@@ -62,8 +62,8 @@ fetchRawData("params", startDate, endDate).then((res) => {
 
         const usedSyms = [];
         firstSyms.forEach((sym) => {
-            // if (!maxPrices[sym] || maxPrices[sym] < 1) {
-            if (maxPrices[sym] && maxPrices[sym] < 1) {
+            // if (!maxPrices[sym] || maxPrices[sym] < 0.5) {
+            // if (maxPrices[sym] && maxPrices[sym] < 0.5) {
                 buySum += firstDay[sym].price;
                 usedSyms.push(sym);
                 if (lastDay[sym]) {
@@ -71,7 +71,7 @@ fetchRawData("params", startDate, endDate).then((res) => {
                 } else {
                     missingSyms.push(sym);
                 }
-            }
+            // }
         });
         const tradeRatio = buySum > 0 ? sellSum / buySum : 1;
         amt *= tradeRatio;
