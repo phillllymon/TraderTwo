@@ -1,5 +1,7 @@
 const { cacheBars, fetchBars, cacheLastResult, fetchLastResult, doesLastQueryMatch } = require("./readWriteCache");
+const fs = require("fs");
 const { CREDS } = require("./CREDS");
+
 
 function fetchDays(theSyms, startTime, endTime, pageToken = false, barsSoFar, params) {
     if (params && params.useCache) {
@@ -149,6 +151,9 @@ function fetchDaysAllStocks(startTime, endTime, params) {
     });
 }
 
+// retrieveAllSymbols({
+//     assetRequirements: []
+// });
 function retrieveAllSymbols(params, startTime, endTime) {
     return new Promise((resolve) => {
         const options = {
@@ -169,7 +174,9 @@ function retrieveAllSymbols(params, startTime, endTime) {
             res.json().then((r) => {
                 const symbols = [];
                 r.forEach((asset) => {
-                    // console.log(asset);
+                    // if (asset.shortable) {
+                    //     console.log(asset);
+                    // }
                     if (!asset.symbol.includes("/")) {
                         let meetsRequirements = true;
                         params.assetRequirements.forEach((requirement) => {

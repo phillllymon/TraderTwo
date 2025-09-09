@@ -168,11 +168,20 @@ function arrAve(arr) {
     return sum / arr.length;
 }
 
+function dataArrToSymObj(arr, symKey) {
+    const answerObj = {};
+    arr.forEach((entry) => {
+        answerObj[entry[symKey]] = entry;
+    });
+    return answerObj;
+}
+
 module.exports = {
     daysDataToDayGroups,
     daysDataToDayGroupsRaw,
     findRValue,
     createDaysQueryArr,
     arrAve,
-    createSimpleDaysArr
+    createSimpleDaysArr,
+    dataArrToSymObj
 };

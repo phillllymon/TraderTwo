@@ -4,7 +4,7 @@ const { queryChatGPT } = require("./chatGPT");
 const { fetchDaysAllStocks } = require("./fetchDays");
 const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
 
-let startDate = "2023-09-04";
+let startDate = "2025-08-28";
 let endDate = "2025-09-01";
 
 const triggerMoveSize = 0.000;
@@ -30,7 +30,7 @@ let params = {
     // maxEverPrice: 0.5,
     // minEverPrice: 0.01,
     maxStartPrice: 1000,
-    minStartPrice: 10,
+    minStartPrice: 50,
     // maxStartPrice: 0.5,
     // minStartPrice: 0.05,
     // minStartVol: 1000,
@@ -70,17 +70,25 @@ function positiveScore(dayGroup, sym) {
     return answer;
 }
 
-// fetchRawData("params").then((res) => {
+fetchRawData("params").then((res) => {
 // fetchRawData("./data/tenToThousandAll23-24.txt").then((res) => {
 // fetchRawData("./data/tenToThousandAll24-25.txt").then((res) => {
 // fetchRawData("./data/tenToThousandAll23-25.txt").then((res) => {
-fetchRawData("./data/tenToThousandShortable23-24.txt").then((res) => {
+// fetchRawData("./data/tenToThousandShortable23-24.txt").then((res) => {
 // fetchRawData("./data/tenToThousandShortable24-25.txt").then((res) => {
 // fetchRawData("./data/tenToThousandShortable23-25.txt").then((res) => {
 
     // fs.writeFileSync("./data/tenToThousandShortable23-25.txt", JSON.stringify(res));
 
     const dayGroups = daysDataToDayGroupsRaw(res);
+
+    // TEMP
+    const syms = Object.keys(dayGroups[0]);
+    syms.forEach((sym) => {
+        console.log(`"${sym}",`);
+    });
+    throw("git");
+    // END TEMP
 
     const scoreReport = {};
     const symCodeLookup = {};

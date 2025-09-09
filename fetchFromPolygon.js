@@ -1,5 +1,5 @@
 const { CREDS } = require("./CREDS");
-const { createSimpleDaysArr } = require("./util");
+const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
 const testDate = "2023-01-01";
@@ -26,14 +26,171 @@ const testDate = "2023-01-01";
 // const startDate = "2025-07-01";
 // const endDate = "2025-08-01";
 
-const startDate = "2023-01-02";
-const endDate = "2023-07-02";
+const startDate = "2025-01-02";
+const endDate = "2025-09-02";
 
 const datesArr = createSimpleDaysArr(startDate, endDate);
-console.log(datesArr);
+// console.log(datesArr);
 
-fetchAndCacheDaySummariesRecursive(datesArr, 0);
+// ----------------------------- main for general test
+// main();
+function main() {
+    const datesToUse = [];
+    datesArr.forEach((date) => {
+        if (readDateData(date)) {
+            datesToUse.push(date);
+        }
+    });
+    console.log(datesToUse);
+    
+    const allSymsArr = JSON.parse(fs.readFileSync("./data/allSyms.txt"));
+    const allSyms = dataArrToSymObj(allSymsArr, "symbol");
+    
+    let amt = 100;
+    const amts = [];
+    const ratios = [];
+    
+    const allTradedSyms = [];
+    const missingSyms = [];
+    
+    let upDays = 0;
+    let downDays = 0;
+    
+    const weekDayUpDowns = {};
+    
+    for (let i = 0; i < datesToUse.length - 1; i++) {
+        const todayData = dataArrToSymObj(readDateData(datesToUse[i]), "T");
+        const tomorrowData = dataArrToSymObj(readDateData(datesToUse[i + 1]), "T");
+    
+        const todaySyms = Object.keys(todayData);
+        const symsToTrade = [];
+        let weekDay;
+        todaySyms.forEach((sym, i) => {
+            const entry = todayData[sym];
+            if (i === 0) {
+                weekDay = new Date(entry.t).getDay();
+                if (!weekDayUpDowns[weekDay]) {
+                    weekDayUpDowns[weekDay] = {
+                        up: 0,
+                        down: 0,
+                        ratio: 1
+                    }
+                }
+            }
+            const close = entry.c;
+            const open = entry.o;
+            if (allSyms[sym]) {
+                // if (close > 10 && close < 50) {
+                if (allSyms[sym].shortable && allSyms[sym].easy_to_borrow) {
+                    if (close - open > 0.15 * open) {
+                        symsToTrade.push(sym);
+                    }
+                }
+            } else {
+                missingSyms.push(sym);
+            }
+        });
+    
+        let buySum = 0;
+        let sellSum = 0;
+    
+        let thisDayRatios = [];
+    
+        const tradedSyms = [];
+        const goodSyms = [];
+        symsToTrade.forEach((sym) => {
+            if (tomorrowData[sym]) {
+                tradedSyms.push([sym, {
+                    open: tomorrowData[sym].o,
+                    close: tomorrowData[sym].c
+                }]);
+                if (!allTradedSyms.includes(sym)) {
+                    allTradedSyms.push(sym);
+                }
+    
+                // short next day open to close
+                sellSum += tomorrowData[sym].o;
+                buySum += tomorrowData[sym].c;
+                const thisRatio = tomorrowData[sym].o / tomorrowData[sym].c;
+                thisDayRatios.push(thisRatio);
+    
+                if (tomorrowData[sym].o > tomorrowData[sym].c) {
+                    goodSyms.push(sym);
+                }
+            }
+        });
+    
+        // const tradeRatio = buySum > 0 ? sellSum / buySum : 1;
+        const tradeRatio = thisDayRatios.length > 0 ? arrAve(thisDayRatios) : 1;
+        amt *= tradeRatio;
+        amts.push(amt);
+        console.log(amt);
+        ratios.push(tradeRatio);
+    
+        if (tradeRatio > 1) {
+            weekDayUpDowns[weekDay].up += 1;
+        }
+        if (tradeRatio < 1) {
+            weekDayUpDowns[weekDay].down += 1;
+        }
+        weekDayUpDowns[weekDay].ratio *= tradeRatio;
+    
+    
+        if (tradeRatio > 1) {
+            upDays += 1;
+        }
+        if (tradeRatio < 1) {
+            downDays += 1;
+        }
+    
+        
+    
+    }
+    console.log(arrAve(ratios));
+    console.log("up days: " + upDays);
+    console.log("down days: " + downDays);
+    console.log(weekDayUpDowns);
+    // allTradedSyms.forEach((sym) => {
+    //     console.log(sym);
+    // });
+    // amts.forEach((n) => {
+    //     console.log(n);
+    // });
+}
 
+
+// end main
+
+
+
+// fetchAndCacheDaySummariesRecursive(datesArr, 0);
+
+// const dayData = readDateData("2025-09-04");
+// const dayDataObj = dataArrToSymObj(dayData, "T");
+// console.log(dayDataObj["AEO"]);
+
+// const allSymsArr = JSON.parse(fs.readFileSync("./data/allSyms.txt"));
+// const allSyms = dataArrToSymObj(allSymsArr, "symbol");
+// console.log(allSyms["AEO"]);
+
+function readDateData(date) {
+    let answer = false;
+    try {
+        const dataArr = JSON.parse(fs.readFileSync(`./data/polygonDays/all${date}.txt`));
+        answer = dataArr;
+    } catch {
+        answer = false;
+    }
+    return answer;
+}
+
+
+// ******************* CACHE NEW DAY HERE!!! *********************
+
+const datesToCache = [
+    "2025-09-08"
+];
+fetchAndCacheDaySummariesRecursive(datesToCache, 0);
 function fetchAndCacheDaySummariesRecursive(dates, i) {
     console.log(`day ${i + 1} / ${dates.length}`);
     return new Promise((resolve) => {
