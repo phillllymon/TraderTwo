@@ -173,6 +173,10 @@ function retrieveAllSymbols(params, startTime, endTime) {
         // fetch('https://paper-api.alpaca.markets/v2/assets?status=active&attributes=', options).then((res) => {
             res.json().then((r) => {
                 const symbols = [];
+
+                // !!!!!!! CACHE allSyms !!!!!!!!! (use just above this function)
+                // fs.writeFileSync("./data/allSyms.txt", JSON.stringify(r));
+
                 r.forEach((asset) => {
                     // if (asset.shortable) {
                     //     console.log(asset);

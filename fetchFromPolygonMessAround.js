@@ -2,32 +2,8 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const testDate = "2023-01-01";
-
-
-// const startDate = "2025-01-02";
-// const endDate = "2025-02-03";
-
-// const startDate = "2025-02-03";
-// const endDate = "2025-03-03";
-
-// const startDate = "2025-03-03";
-// const endDate = "2025-04-01";
-
-// const startDate = "2025-04-01";
-// const endDate = "2025-05-01";
-
-// const startDate = "2025-05-01";
-// const endDate = "2025-06-02";
-
-// const startDate = "2025-06-02";
-// const endDate = "2025-07-01";
-
-// const startDate = "2025-07-01";
-// const endDate = "2025-08-01";
-
-const startDate = "2025-01-08";
-const endDate = "2025-09-12";
+const startDate = "2025-08-09";
+const endDate = "2025-09-14";
 
 const useTopNum = 5;
 const shortCalc = true;
@@ -51,6 +27,10 @@ let amt = 100;
 const amts = [];
 const ratios = [];
 
+let keep = 100;
+const keeps = [];
+const keepRatios = [];
+
 const allTradedSyms = [];
 const missingSyms = [];
 
@@ -65,8 +45,8 @@ let totalMissingNextDay = 0;
 
 const weekDayUpDowns = {};
 
-for (let i = 0; i < datesToUse.length; i++) {
-    // const yesterdayData = dataArrToSymObj(readDateData(datesToUse[i - 1]), "T");
+for (let i = 1; i < datesToUse.length; i++) {
+    const yesterdayData = dataArrToSymObj(readDateData(datesToUse[i - 1]), "T");
     const todayData = dataArrToSymObj(readDateData(datesToUse[i]), "T");
     const tomorrowData = i === datesToUse.length - 1 ? false : dataArrToSymObj(readDateData(datesToUse[i + 1]), "T");
 
@@ -80,7 +60,10 @@ for (let i = 0; i < datesToUse.length; i++) {
     let weekDay;
 
     todaySyms.forEach((sym, j) => {
+        
         if (tomorrowData[sym] || lastDay) {
+        // if (tomorrowData[sym] || lastDay) {
+
             const todayOpen = todayData[sym].o;
             const todayClose = todayData[sym].c;
             const tomorrowOpen = lastDay ? false : tomorrowData[sym].o;
@@ -121,21 +104,31 @@ for (let i = 0; i < datesToUse.length; i++) {
         }
         const close = entry.c;
         const open = entry.o;
-        
-        
-        if (allSyms[sym]) {
-            if (close > 5 && entry.v > 0 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
-                if (close > 1.15 * open) {
-                    symsToTrade.push({
-                        sym: sym,
-                        trade: "short",
-                        close: close,
-                        open: open
-                    });
+
+        if (yesterdayData[sym]) {
+
+            const yesterdayOpen = yesterdayData[sym].o;
+            const yesterdayClose = yesterdayData[sym].c;
+            const todayVol = entry.v;
+            const yesterdayVol = yesterdayData[sym].v;
+
+            const numShares = (amt / 5.0) / close;
+            
+            if (allSyms[sym]) {
+                if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
+                    if (close > 1.15 * open && numShares < 0.01 * entry.v) {
+                    // if (close > 1.15 * open) {
+                        symsToTrade.push({
+                            sym: sym,
+                            trade: "short",
+                            close: close,
+                            open: open
+                        });
+                    }
                 }
+            } else {
+                missingSyms.push(sym);
             }
-        } else {
-            missingSyms.push(sym);
         }
     });
 
@@ -147,6 +140,7 @@ for (let i = 0; i < datesToUse.length; i++) {
     const tradedSyms = [];
     const goodSyms = [];
     const modifiedSymsToTrade = symsToTrade.sort((a, b) => {
+        // if (Math.random() > 0.5) {
         if ((a.close / a.open) > (b.close / b.open)) {
             return 1;
         } else {
@@ -181,7 +175,7 @@ for (let i = 0; i < datesToUse.length; i++) {
                 // const low = tomorrowData[sym].l;
                 // const high = tomorrowData[sym].h;
                 // // const buyPrice = low < 0.8 * open ? 0.8 * open : close;
-                // const buyPrice = high > 1.1 * open ? 1.1 * open : close;
+                // const buyPrice = high > 1.6 * open ? 1.6 * open : close;
                 // thisDayRatios.push(open / buyPrice);
 
 
@@ -199,13 +193,23 @@ for (let i = 0; i < datesToUse.length; i++) {
         }
     });
 
-    // const tradeRatio = buySum > 0 ? sellSum / buySum : 1;
+    // ********** SIMULATE KEEP WITH BUY QQQ ************
+    if (tomorrowData["QQQ"]) {
+        const buyPrice = tomorrowData["QQQ"].o;
+        const sellPrice = tomorrowData["QQQ"].c;
+        const keepRatio = sellPrice / buyPrice;
+        keep *= keepRatio;
+        keeps.push(keep);
+        // console.log(keep);
+    }
+    
     if (lastDay) {
         const sampleSym = Object.keys(todayData)[0];
         console.log(`LAST DAY - ${new Date(todayData[sampleSym].t)}`);
         console.log(tradedSyms);
     } else {
         const tradeRatio = thisDayRatios.length > 0 ? arrAve(thisDayRatios) : 1;
+        
         
         if (shortCalc) {
             let amtToTrade = 0.667 * amt;
@@ -215,6 +219,7 @@ for (let i = 0; i < datesToUse.length; i++) {
         } else {
             amt *= tradeRatio;
         }
+        
 
         amts.push(amt);
         console.log(amt);
@@ -281,9 +286,6 @@ console.log("missing: " + totalMissingNextDay);
 // end main
 
 
-
-// fetchAndCacheDaySummariesRecursive(datesArr, 0);
-
 function readDateData(date) {
     let answer = false;
     try {
@@ -294,94 +296,3 @@ function readDateData(date) {
     }
     return answer;
 }
-
-function fetchAndCacheDaySummariesRecursive(dates, i) {
-    console.log(`day ${i + 1} / ${dates.length}`);
-    return new Promise((resolve) => {
-        const dateToFetch = dates[i];
-        if (!dateToFetch) {
-            console.log("done fetching and caching");
-            resolve();
-        } else {
-            fetchDaySummaryWholeMarket(dateToFetch).then((res) => {
-                if (res) {
-                    const strToCache = JSON.stringify(res);
-                    fs.writeFileSync(`./data/polygonDays/all${dateToFetch}.txt`, strToCache);
-                }
-                fetchAndCacheDaySummariesRecursive(dates, i + 1).then(() => {
-                    resolve();
-                });
-            });
-        }
-    });
-}
-
-
-// fetchDaySummaryWholeMarket(testDate).then((res) => {
-//     console.log(res);
-// });
-
-function fetchDaySummaryWholeMarket(date) {
-    return new Promise((resolve) => {
-        fetch(`https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${date}?adjusted=true&apiKey=${CREDS.polygonKey}`).then((res) => {
-            res.json().then((r) => {
-                if (r.resultsCount < 1) {
-                    resolve(false);
-                } else {
-                    resolve(r.results);
-                }
-            });
-        });
-    });
-}
-
-// fetch(`https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${testDate}?adjusted=true&apiKey=${CREDS.polygonKey}`).then((resA) => {
-//     resA.json().then((rA) => {
-//         // console.log(rA);
-//         const quotesA = rA.results;
-//         const oldPrices = {};
-//         quotesA.forEach((quote) => {
-//             oldPrices[quote.T] = quote.c;
-//         });
-//         console.log("A");
-//         fetch(`https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${startDate}?adjusted=true&apiKey=${CREDS.polygonKey}`).then((res) => {
-//             res.json().then((r) => {
-        
-//                 const quotes = r.results;
-        
-        
-//                 const lows = [];
-//                 let buySum = 0;
-//                 let sellSum = 0;
-//                 quotes.forEach((quote) => {
-//                     if (quote.c < 0.5 && quote.c > 0.01) {
-//                         if (oldPrices[quote.T] && oldPrices[quote.T] < 0.5) {
-//                             lows.push(quote.T);
-//                             buySum += quote.c;
-//                         }
-//                     }
-//                 });
-//                 console.log("bought " + lows.length + " stocks");
-//                 fetch(`https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${endDate}?adjusted=true&apiKey=jgFhJjQBScepCQQS_F1IVGpyH5uckLuy`).then((resB) => {
-//                     resB.json().then((rB) => {
-//                         const quotesB = rB.results;
-//                         let numFound = 0;
-//                         quotesB.forEach((quote) => {
-//                             if (lows.includes(quote.T)) {
-//                                 sellSum += quote.c;
-//                                 numFound += 1;
-//                             }
-//                         });
-        
-//                         const tradeRatio = sellSum / buySum;
-//                         console.log(100);
-//                         console.log(100 * tradeRatio);
-//                         console.log(`${numFound} symbols found out of ${lows.length}`);
-//                     });
-//                 });
-//             }).catch((e) => {
-//                 console.log(e.message);
-//             });
-//         });
-//     });
-// });
