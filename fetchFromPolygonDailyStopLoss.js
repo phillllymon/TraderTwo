@@ -8,10 +8,12 @@ const endDate = "2025-09-12";
 
 const useTopNum = 5;
 
-const stopLoss = 1.5;
-const takeProfit = 0.25;
+// use just fraction (i.e. 0.05 for 5% either direction)
+// set to false to not do either or both of these
+const stopLoss = 0.25;
+const takeProfit = 0.50;
 
-let amt = 100;
+let amt = 40000;
 
 const datesArr = createSimpleDaysArr(startDate, endDate);
 // console.log(datesArr);
@@ -64,10 +66,13 @@ for (let i = 1; i < datesToUse.length; i++) {
         }
         const close = entry.c;
         const open = entry.o;
+
+        const numShares = (amt / useTopNum) / open;
+        const volume = entry.v;
         
         if (allSyms[sym]) {
             if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
-                if (close > 1.15 * open) {
+                if (close > 1.15 * open && numShares < 0.01 * volume) {
                 // if (close > 1.15 * open) {
                     symsToTrade.push({
                         sym: sym,
@@ -130,8 +135,12 @@ for (let i = 1; i < datesToUse.length; i++) {
     });
     
     if (lastDay) {
-        runDayDataRecursive(dataToRun, 0);
-        
+        const sampleSym = Object.keys(todayData)[0];
+        runDayDataRecursive(dataToRun, 0).then(() => {
+            console.log("LAST DAY - " + new Date(todayData[sampleSym].t).toISOString().slice(0, 10));
+            console.log("LAST DAY SYMS: ");
+            console.log(tradedSyms.map(ele => ele[0]));
+        });
     } else {
         const sampleSym = Object.keys(tomorrowData)[0];
         dataToRun.push({
@@ -157,6 +166,7 @@ function runDayDataRecursive(data, i) {
         const dataToUse = data[i];
         if (!dataToUse) {
             console.log("DONE");
+            resolve();
         } else {
             fetchMinutelyDataForSymsRecursive(dataToUse.syms, dataToUse.date, 0).then((symDataObj) => {
                 const tradeRatios = [];
@@ -167,11 +177,11 @@ function runDayDataRecursive(data, i) {
                     let buyPrice = false;
                     symData.forEach((bar) => {
                         // stop loss
-                        if (bar.c - sellPrice > stopLoss * sellPrice && !buyPrice) {
+                        if (stopLoss && !buyPrice && bar.c > (1 + stopLoss) * sellPrice) {
                             buyPrice = bar.c;
                         }
                         // take profit
-                        if (sellPrice - bar.c > takeProfit * sellPrice && !buyPrice) {
+                        if (takeProfit && !buyPrice && bar.c < (1 - takeProfit) * sellPrice) {
                             buyPrice = bar.c;
                         }
                     });

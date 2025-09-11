@@ -2,14 +2,12 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const startDate = "2025-08-09";
+const startDate = "2025-01-01";
 const endDate = "2025-09-14";
 
 const useTopNum = 5;
-const shortCalc = true;
 
 const datesArr = createSimpleDaysArr(startDate, endDate);
-// console.log(datesArr);
 
 // main for general test
 const datesToUse = [];
@@ -47,8 +45,6 @@ let downRatios = [];
 let missing = 0;
 
 let totalMissingNextDay = 0;
-let maxLoss = 1;
-let maxGain = 1;
 
 const weekDayUpDowns = {};
 
@@ -76,7 +72,7 @@ for (let i = 1; i < datesToUse.length; i++) {
             const tomorrowOpen = lastDay ? false : tomorrowData[sym].o;
             const tomorrowClose = lastDay ? false : tomorrowData[sym].c;
     
-            if (todayClose > 1.15 * todayOpen && todayOpen < 5) {
+            if (todayClose > 1.15 * todayOpen && allSyms[sym] && allSyms[sym].attributes.includes("has_options")) {
                 if (tomorrowOpen > 0) {
                     upRatios.push(tomorrowClose / tomorrowOpen);
                 } else {
@@ -130,12 +126,12 @@ for (let i = 1; i < datesToUse.length; i++) {
             const numShares = (amt / 5.0) / close;
             
             if (allSyms[sym]) {
-                if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
-                    if (close > 1.15 * open && numShares < 0.01 * entry.v) {
-                    // if (close > 1.15 * open) {
+                if (close < 0.25) {
+                    if (close > 1.15 * open && yesterdayClose < 1.0 * yesterdayOpen) {
+                    // if (close > 1.15 * open && close < 1.2 * open) {
                         symsToTrade.push({
                             sym: sym,
-                            trade: "short",
+                            trade: "buy",
                             close: close,
                             open: open
                         });
@@ -164,15 +160,14 @@ for (let i = 1; i < datesToUse.length; i++) {
     });
     
     // console.log(modifiedSymsToTrade);
-    modifiedSymsToTrade.slice(modifiedSymsToTrade.length - useTopNum, modifiedSymsToTrade.length).forEach((symObj) => {
-    // modifiedSymsToTrade.forEach((symObj) => {
+    // modifiedSymsToTrade.slice(modifiedSymsToTrade.length - useTopNum, modifiedSymsToTrade.length).forEach((symObj) => {
+    modifiedSymsToTrade.forEach((symObj) => {
         const sym = symObj.sym;
         const trade = symObj.trade;
         if (lastDay || tomorrowData[sym]) {
             tradedSyms.push([sym, {
                 todayOpen: symObj.open,
                 todayClose: symObj.close,
-                requirement: allSyms[sym].name,
                 tomorrowOpen: lastDay ? "dunno" : tomorrowData[sym].o,
                 tomorrowClose: lastDay ? "dunno" : tomorrowData[sym].c
             }]);
@@ -222,38 +217,18 @@ for (let i = 1; i < datesToUse.length; i++) {
     if (lastDay) {
         const sampleSym = Object.keys(todayData)[0];
         console.log(`LAST DAY - ${new Date(todayData[sampleSym].t)}`);
-        console.log(tradedSyms);
+        // console.log(tradedSyms);
     } else {
         const tradeRatio = thisDayRatios.length > 0 ? arrAve(thisDayRatios) : 1;
         
         
-        if (shortCalc) {
-            let amtToTrade = 0.6 * amt;
-            const reserveAmt = 0.4 * amt;
-            // amtToTrade *= tradeRatio;
-            
-            const revenue = amtToTrade;
-            const pricePaid = amtToTrade / tradeRatio;
-            amtToTrade += revenue;
-            amtToTrade -= pricePaid;
-            
-            amt = amtToTrade + reserveAmt;
-        } else {
-            amt *= tradeRatio;
-        }
         
-        if (tradeRatio < 1) {
-            if (tradeRatio < maxLoss) {
-                maxLoss = tradeRatio;
-            }
-        } else {
-            if (tradeRatio > maxGain) {
-                maxGain = tradeRatio;
-            }
-        }
+        amt *= tradeRatio;
+        
+        
 
         amts.push(amt);
-        console.log(amt);
+        console.log(amt, tradedSyms.length);
         ratios.push(tradeRatio);
     
         if (tradeRatio > 1) {
@@ -309,8 +284,6 @@ console.log("missing from up down: " + missing);
 console.log(`total repeats: ${upUps + downDowns}`);
 console.log(`total switches: ${upDowns + downUps}`);
 console.log("missing: " + totalMissingNextDay);
-console.log("worst day ratio: " + maxLoss);
-console.log("best day ratio: " + maxGain);
 // allTradedSyms.forEach((sym) => {
 //     console.log(sym);
 // });
