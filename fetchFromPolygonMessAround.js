@@ -2,8 +2,8 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const startDate = "2025-08-09";
-const endDate = "2025-09-14";
+const startDate = "2024-01-01";
+const endDate = "2025-01-01";
 
 const useTopNum = 5;
 const shortCalc = true;
@@ -26,6 +26,7 @@ const allSyms = dataArrToSymObj(allSymsArr, "symbol");
 let amt = 100;
 const amts = [];
 const ratios = [];
+const actualFractions = [];
 
 let keep = 100;
 const keeps = [];
@@ -131,8 +132,9 @@ for (let i = 1; i < datesToUse.length; i++) {
             
             if (allSyms[sym]) {
                 if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
-                    if (close > 1.15 * open && numShares < 0.01 * entry.v) {
-                    // if (close > 1.15 * open) {
+                    if (close > 1.15 * open && numShares < 0.02 * entry.v) { // STANDARD
+                    // if ((close > 1.15 * open || (yesterdayClose < yesterdayOpen && open > 1.1 * close)) && numShares < 0.02 * entry.v) {
+                    // if (yesterdayOpen > 1.15 * yesterdayClose && numShares < 0.02 * entry.v) {
                         symsToTrade.push({
                             sym: sym,
                             trade: "short",
@@ -226,10 +228,10 @@ for (let i = 1; i < datesToUse.length; i++) {
     } else {
         const tradeRatio = thisDayRatios.length > 0 ? arrAve(thisDayRatios) : 1;
         
-        
+        const oldAmt = amt;
         if (shortCalc) {
-            let amtToTrade = 0.6 * amt;
-            const reserveAmt = 0.4 * amt;
+            let amtToTrade = 0.5 * amt;
+            const reserveAmt = 0.5 * amt;
             // amtToTrade *= tradeRatio;
             
             const revenue = amtToTrade;
@@ -241,6 +243,7 @@ for (let i = 1; i < datesToUse.length; i++) {
         } else {
             amt *= tradeRatio;
         }
+        actualFractions.push(amt / oldAmt);
         
         if (tradeRatio < 1) {
             if (tradeRatio < maxLoss) {
@@ -294,6 +297,7 @@ console.log("repeats: " + amtRepeats);
 console.log("reverses: " + amtReverses);
 console.log("**************");
 
+console.log(arrAve(actualFractions), Math.max(...actualFractions), Math.min(...actualFractions));
 console.log(arrAve(ratios));
 console.log("up days: " + upDays);
 console.log("down days: " + downDays);

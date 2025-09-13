@@ -45,7 +45,9 @@ function fetchDays(theSyms, startTime, endTime, pageToken = false, barsSoFar, pa
                 "Apca-Api-Secret-Key": CREDS.secret
             }
         }).then((res) => {
+            // console.log(res);
             res.json().then((r) => {
+                // console.log(r);
                 theSyms.forEach((sym) => {
                     // console.log(r);
                     if (r.bars[sym]) {
