@@ -3,17 +3,23 @@ const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 
-const startDate = "2025-01-01";
-const endDate = "2025-09-12";
+const startDate = "2024-01-01";
+const endDate = "2025-01-01";
 
 const useTopNum = 5;
 
 // use just fraction (i.e. 0.05 for 5% either direction)
 // set to false to not do either or both of these
-const stopLoss = 0.25;
-const takeProfit = 0.50;
+const stopLoss = false;
+const takeProfit = false;
 
-let amt = 40000;
+// fraction of the day to cover at (i.e. 0.5 for halfway)
+const coverAt = false;
+
+// cover at this point in day if we already lost money
+const bailAt = false;
+
+let amt = 100;
 
 const datesArr = createSimpleDaysArr(startDate, endDate);
 // console.log(datesArr);
@@ -27,7 +33,7 @@ datesArr.forEach((date) => {
 });
 console.log(datesToUse);
 
-const allSymsArr = JSON.parse(fs.readFileSync("./data/allSyms.txt"));
+const allSymsArr = JSON.parse(fs.readFileSync("./data/allSymsA.txt"));
 const allSyms = dataArrToSymObj(allSymsArr, "symbol");
 
 const dataToRun = [];
@@ -72,7 +78,7 @@ for (let i = 1; i < datesToUse.length; i++) {
         
         if (allSyms[sym]) {
             if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
-                if (close > 1.15 * open && numShares < 0.01 * volume) {
+                if (close > 1.15 * open && numShares < 0.02 * volume) {
                 // if (close > 1.15 * open) {
                     symsToTrade.push({
                         sym: sym,
@@ -175,13 +181,21 @@ function runDayDataRecursive(data, i) {
 
                     const sellPrice = symData[0].o;
                     let buyPrice = false;
-                    symData.forEach((bar) => {
+                    symData.forEach((bar, idx) => {
                         // stop loss
                         if (stopLoss && !buyPrice && bar.c > (1 + stopLoss) * sellPrice) {
                             buyPrice = bar.c;
                         }
                         // take profit
                         if (takeProfit && !buyPrice && bar.c < (1 - takeProfit) * sellPrice) {
+                            buyPrice = bar.c;
+                        }
+                        // cover at specific time
+                        if (coverAt && !buyPrice && idx === Math.floor(coverAt * symData.length)) {
+                            buyPrice = bar.c;
+                        }
+                        // bail at specific time if we lost money
+                        if (bailAt && !buyPrice && idx === Math.floor(bailAt * symData.length) && bar.c > sellPrice) {
                             buyPrice = bar.c;
                         }
                     });

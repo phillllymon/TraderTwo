@@ -2,8 +2,8 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const startDate = "2024-01-01";
-const endDate = "2025-09-14";
+const startDate = "2025-01-01";
+const endDate = "2026-01-01";
 
 const useTopNum = 5;
 
@@ -38,31 +38,67 @@ let downDays = 0;
 let upTrades = 0;
 let downTrades = 0;
 
-let downDown = {
+let downDownDown = {
     up: 0,
     down: 0
 };
-let downUp = {
+let downDownUp = {
     up: 0,
     down: 0
 };
-let upUp = {
+let downUpUp = {
     up: 0,
     down: 0
 };
-let upDown = {
+let downUpDown = {
     up: 0,
     down: 0
 };
+let upDownDown = {
+    up: 0,
+    down: 0
+};
+let upDownUp = {
+    up: 0,
+    down: 0
+};
+let upUpUp = {
+    up: 0,
+    down: 0
+};
+let upUpDown = {
+    up: 0,
+    down: 0
+};
+
+const tradesOnDay = {};
+
+const minPrice = 5;
+const minVol = 100000;
+const universalFraction = 1.01;
+const changeFraction = 1.00;
 const changeFractionA = 1.00;
-const changeFractionB = 1.025;
+const changeFractionB = 1.05;
 
 let upRatios = [];
 let downRatios = [];
 
 const weekDayUpDowns = {};
 
-for (let i = 1; i < datesToUse.length; i++) {
+for (let i = 2; i < datesToUse.length; i++) {
+    
+    // outlier dates
+    if ([
+        "2025-04-08",
+        "2025-03-03",
+        "2025-04-10",
+        "2025-04-02",
+        "2025-04-03"
+    ].includes(datesToUse[i])) {
+        continue;
+    }
+
+    const dayBeforeData = dataArrToSymObj(readDateData(datesToUse[i - 2]), "T");
     const yesterdayData = dataArrToSymObj(readDateData(datesToUse[i - 1]), "T");
     const todayData = dataArrToSymObj(readDateData(datesToUse[i]), "T");
     const tomorrowData = i === datesToUse.length - 1 ? false : dataArrToSymObj(readDateData(datesToUse[i + 1]), "T");
@@ -77,10 +113,13 @@ for (let i = 1; i < datesToUse.length; i++) {
     let weekDay;
 
     todaySyms.forEach((sym, j) => {
+    // ["SEAT"].forEach((sym, j) => {
         
-        if (tomorrowData[sym] && yesterdayData[sym] && todayData[sym].c > 100 && todayData[sym].v > 1000000) {
+        if (dayBeforeData[sym] && tomorrowData[sym] && yesterdayData[sym] && todayData[sym].c > minPrice && todayData[sym].v > minVol) {
         // if (tomorrowData[sym] || lastDay) {
 
+            const dayBeforeOpen = dayBeforeData[sym].o;
+            const dayBeforeClose = dayBeforeData[sym].c;
             const yesterdayOpen = yesterdayData[sym].o;
             const yesterdayClose = yesterdayData[sym].c;
             const todayOpen = todayData[sym].o;
@@ -88,39 +127,79 @@ for (let i = 1; i < datesToUse.length; i++) {
             const tomorrowOpen = lastDay ? false : tomorrowData[sym].o;
             const tomorrowClose = lastDay ? false : tomorrowData[sym].c;
     
-            if (yesterdayClose > changeFractionA * yesterdayOpen) {
-                if (todayClose > changeFractionB * todayOpen) {
-                    if (tomorrowClose > tomorrowOpen) {
-                        upUp.up += 1;
+            if (dayBeforeClose > changeFraction * dayBeforeOpen) {
+                if (yesterdayClose > changeFractionA * yesterdayOpen) {
+                    if (todayClose > changeFractionB * todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            upUpUp.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            upUpUp.down += 1;
+                        }
                     }
-                    if (tomorrowClose < tomorrowOpen) {
-                        upUp.down += 1;
+                    if (changeFractionB * todayClose < todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            upUpDown.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            upUpDown.down += 1;
+                        }
                     }
                 }
-                if (changeFractionB * todayClose < todayOpen) {
-                    if (tomorrowClose > tomorrowOpen) {
-                        upDown.up += 1;
+                if (yesterdayClose * changeFractionA < yesterdayOpen) {
+                    if (todayClose > changeFractionB * todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            upDownUp.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            upDownUp.down += 1;
+                        }
                     }
-                    if (tomorrowClose < tomorrowOpen) {
-                        upDown.down += 1;
+                    if (todayClose * changeFractionB < todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            upDownDown.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            upDownDown.down += 1;
+                        }
                     }
                 }
             }
-            if (yesterdayClose * changeFractionA < yesterdayOpen) {
-                if (todayClose > changeFractionB * todayOpen) {
-                    if (tomorrowClose > tomorrowOpen) {
-                        downUp.up += 1;
+            if (changeFraction * dayBeforeClose < dayBeforeOpen) {
+                if (yesterdayClose > changeFractionA * yesterdayOpen) {
+                    if (todayClose > changeFractionB * todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            downUpUp.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            downUpUp.down += 1;
+                        }
                     }
-                    if (tomorrowClose < tomorrowOpen) {
-                        downUp.down += 1;
+                    if (changeFractionB * todayClose < todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            downUpDown.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            downUpDown.down += 1;
+                        }
                     }
                 }
-                if (todayClose * changeFractionB < todayOpen) {
-                    if (tomorrowClose > tomorrowOpen) {
-                        downDown.up += 1;
+                if (yesterdayClose * changeFractionA < yesterdayOpen) {
+                    if (todayClose > changeFractionB * todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            downDownUp.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            downDownUp.down += 1;
+                        }
                     }
-                    if (tomorrowClose < tomorrowOpen) {
-                        downDown.down += 1;
+                    if (todayClose * changeFractionB < todayOpen) {
+                        if (tomorrowClose > tomorrowOpen) {
+                            downDownDown.up += 1;
+                        }
+                        if (tomorrowClose < tomorrowOpen) {
+                            downDownDown.down += 1;
+                        }
                     }
                 }
             }
@@ -140,19 +219,29 @@ for (let i = 1; i < datesToUse.length; i++) {
         const close = entry.c;
         const open = entry.o;
 
-        if (yesterdayData[sym]) {
+        if (yesterdayData[sym] && dayBeforeData[sym]) {
 
+            const dayBeforeOpen = dayBeforeData[sym].o;
+            const dayBeforeClose = dayBeforeData[sym].c;
             const yesterdayOpen = yesterdayData[sym].o;
             const yesterdayClose = yesterdayData[sym].c;
             const todayVol = entry.v;
             const yesterdayVol = yesterdayData[sym].v;
 
+            const aUp = dayBeforeClose > changeFraction * dayBeforeOpen;
+            const aDown = dayBeforeClose * changeFraction < dayBeforeOpen;
+            const bUp = yesterdayClose > changeFractionA * yesterdayOpen;
+            const bDown = yesterdayClose * changeFractionA < yesterdayOpen;
+            const cUp = close > changeFractionB * open;
+            const cDown = close * changeFractionB < open;
+
             const numShares = (amt / 5.0) / close;
             
             if (allSyms[sym]) {
-                if (close > 30 && todayVol > 100000) {
-                    if (yesterdayClose > 0.99 * yesterdayOpen && close * 1.05 < open) {
+                if (close > minPrice && todayVol > minVol) {
+                    if ((aDown && bUp && cDown)) {
                         symsToTrade.push({
+                            date: entry.t,
                             sym: sym,
                             trade: "buy",
                             close: close,
@@ -221,14 +310,23 @@ for (let i = 1; i < datesToUse.length; i++) {
                     const thisRatio = tomorrowData[sym].c / tomorrowData[sym].o;
                     thisDayRatios.push(thisRatio);
                     // amt *= thisRatio;
-    
+                    const date = new Date(symObj.date).toISOString().slice(0, 10);
+                    if (!tradesOnDay[date]) {
+                        tradesOnDay[date] = {
+                            up: 0,
+                            down: 0
+                        }
+                    }
+                    
                     if (thisRatio > 1) {
                         upTrades += 1;
                         upRatios.push(thisRatio);
+                        tradesOnDay[date].up += 1;
                     }
                     if (thisRatio < 1) {
                         downTrades += 1;
                         downRatios.push(thisRatio);
+                        tradesOnDay[date].down += 1;
                     }
                 }
     
@@ -313,15 +411,26 @@ console.log("up ratio ave: " + arrAve(upRatios), upRatios.length);
 console.log("down ratio ave: " + arrAve(downRatios), downRatios.length);
 // console.log(weekDayUpDowns);
 console.log("-------");
-console.log("up up: ", upUp, upUp.up / upUp.down);
-console.log("up down: ", upDown, upDown.up / upDown.down);
-console.log("down up: ", downUp, downUp.up / downUp.down);
-console.log("down down: ", downDown, downDown.up / downDown.down);
-// allTradedSyms.forEach((sym) => {
-//     console.log(sym);
-// });
-// amts.forEach((n) => {
-//     console.log(n);
+console.log("up up up: ", upUpUp, upUpUp.up / upUpUp.down);
+console.log("up up down: ", upUpDown, upUpDown.up / upUpDown.down);
+console.log("up down up: ", upDownUp, upDownUp.up / upDownUp.down);
+console.log("up down down: ", upDownDown, upDownDown.up / upDownDown.down);
+console.log("down up up: ", downUpUp, downUpUp.up / downUpUp.down);
+console.log("down up down: ", downUpDown, downUpDown.up / downUpDown.down);
+console.log("down down up: ", downDownUp, downDownUp.up / downDownUp.down);
+console.log("down down down: ", downDownDown, downDownDown.up / downDownDown.down);
+const tradesOnDaySorted = Object.keys(tradesOnDay).map((date) => {
+    return [date, tradesOnDay[date], tradesOnDay[date].up + tradesOnDay[date].down];
+}).sort((a, b) => {
+    if (a[1].down > b[1].down) {
+        return 1;
+    } else {
+        return -1;
+    }
+});
+// console.log(tradesOnDaySorted.slice(tradesOnDaySorted.length - 10, tradesOnDaySorted.length));
+// tradesOnDaySorted.forEach((ele) => {
+//     console.log(ele);
 // });
 
 

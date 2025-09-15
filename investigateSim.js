@@ -4,8 +4,8 @@ const { daysDataToDayGroupsRaw, createDaysQueryArr, arrAve } = require("./util")
 const { findBestSym, findBestSymWithPeriod } = require("./analyzer");
 const { findHighCorrelations, findDoubleHighCorrelations } = require("./correlations");
 
-const startDate = "2025-01-01";
-const endDate = "2025-09-01";
+const startDate = "2023-01-01";
+const endDate = "2024-01-01";
 
 let triggeredUps = 0;
 let triggeredDowns = 0;
@@ -23,9 +23,10 @@ fetchDaysAllStocks(startDate, endDate, {
         const todayData = dayGroups[i];
         const tomorrowData = dayGroups[i + 1];
         const todaySyms = Object.keys(todayData);
+        const tomorrowSyms = Object.keys(tomorrowData);
         const tradeRatios = [];
         todaySyms.forEach((sym) => {
-            if (Object.keys(tomorrowData).includes(sym)) {
+            if (tomorrowSyms.includes(sym)) {
                 const todayOpen = todayData[sym].open;
                 const todayClose = todayData[sym].price;
                 const todayVol = todayData[sym].vol;
