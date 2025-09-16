@@ -2,10 +2,10 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const startDate = "2024-01-01";
-const endDate = "2025-01-01";
+const startDate = "2025-01-01";
+const endDate = "2026-01-01";
 
-const fileToUse = "allSymsA";
+const fileToUse = "allSymsC";
 
 const useTopNum = 5;
 const shortCalc = true;
@@ -78,7 +78,8 @@ for (let i = 1; i < datesToUse.length; i++) {
                 weekDayUpDowns[weekDay] = {
                     up: 0,
                     down: 0,
-                    ratio: 1
+                    ratio: 1,
+                    // ratios: []
                 }
             }
         }
@@ -102,18 +103,19 @@ for (let i = 1; i < datesToUse.length; i++) {
             const yesterdayVol = yesterdayData[sym].v;
 
             const numShares = (amt / 5.0) / close;
-            
+
             if (allSyms[sym]) {
                 if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
-                    if (close > 1.15 * open && numShares < 0.02 * entry.v) { // STANDARD
-                    // if (close > 1.15 * open
-                    //     && numShares < 0.02 * entry.v
-                    //     && close < 1.3 * open
-                    //     // && tomorrowData[sym] && tomorrowData[sym].o > 0.9 * close // means has gone down in overnight trading
-                    //     // && weekDay !== 3
-                    //     // && todayData["META"] && todayData["META"].c < todayData["META"].o
-                    //     // && todayData["AMZN"] && todayData["AMZN"].c > 1.005 * todayData["AMZN"].o
-                    // ) {
+                    // if (close > 1.15 * open && numShares < 0.02 * entry.v) { // STANDARD
+                    if (close > 1.15 * open
+                        && numShares < 0.02 * entry.v
+                        // && entry.h - entry.l > 1.3 * (close - open)
+                        // && entry.o > 1.1 * entry.l
+                        // && tomorrowData[sym] && tomorrowData[sym].o > 0.9 * close // means has gone down in overnight trading
+                        // && weekDay !== 3
+                        // && todayData["META"] && todayData["META"].c < todayData["META"].o
+                        // && todayData["AMZN"] && todayData["AMZN"].c > 1.005 * todayData["AMZN"].o
+                    ) {
                     // if (tomorrowData[sym] && tomorrowData[sym].o < close) {
                         symsToTrade.push({
                             sym: sym,
@@ -276,6 +278,7 @@ for (let i = 1; i < datesToUse.length; i++) {
             weekDayUpDowns[weekDay].down += 1;
         }
         weekDayUpDowns[weekDay].ratio *= tradeRatio;
+        // weekDayUpDowns[weekDay].ratios.push(tradeRatio);
     
     
         if (tradeRatio > 1) {
@@ -311,6 +314,9 @@ console.log(arrAve(actualFractions), Math.max(...actualFractions), Math.min(...a
 console.log(arrAve(ratios));
 console.log("up days: " + upDays);
 console.log("down days: " + downDays);
+// [1, 2, 3, 4, 5].forEach((day) => {
+//     weekDayUpDowns[day].ratios = arrAve(weekDayUpDowns[day].ratios);
+// });
 console.log(weekDayUpDowns);
 console.log("-------");
 console.log("qqqUp", qqqUp, qqqUp.up / qqqUp.down);

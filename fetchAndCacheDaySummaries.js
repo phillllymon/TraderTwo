@@ -3,7 +3,7 @@ const { CREDS } = require("./CREDS");
 
 
 const datesNeeded = [
-    "2025-09-12"
+    "2025-09-16"
 ];
 
 fetchAndCacheDaySummariesRecursive(datesNeeded, 0);

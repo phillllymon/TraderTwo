@@ -3,8 +3,8 @@ const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 
-const startDate = "2024-01-01";
-const endDate = "2025-01-01";
+const startDate = "2025-01-01";
+const endDate = "2025-04-01";
 
 const useTopNum = 5;
 
@@ -148,11 +148,24 @@ for (let i = 1; i < datesToUse.length; i++) {
             console.log(tradedSyms.map(ele => ele[0]));
         });
     } else {
-        const sampleSym = Object.keys(tomorrowData)[0];
+
+        // EXP - fetching data for today to see good/bad days
+        const sampleSym = Object.keys(todayData)[0];
         dataToRun.push({
             syms: tradedSyms.map(ele => ele[0]),
-            date: new Date(tomorrowData[sampleSym].t).toISOString().slice(0, 10)
+            date: new Date(todayData[sampleSym].t).toISOString().slice(0, 10),
+            tomorrowOpens: tradedSyms.map(ele => ele[1].tomorrowOpen),
+            tomorrowCloses: tradedSyms.map(ele => ele[1].tomorrowClose)
         });
+        // END EXP
+
+        // const sampleSym = Object.keys(tomorrowData)[0];
+        // dataToRun.push({
+        //     syms: tradedSyms.map(ele => ele[0]),
+        //     date: new Date(tomorrowData[sampleSym].t).toISOString().slice(0, 10),
+        //     tomorrowOpens: tradedSyms.map(ele => ele[1].tomorrowOpen),
+        //     tomorrowCloses: tradedSyms.map(ele => ele[1].tomorrowClose)
+        // });
     }
 }
 
@@ -167,57 +180,155 @@ function readDateData(date) {
     return answer;
 }
 
+let goodN = 0;
+let badN = 0;
+
+let right = 0;
+let wrong = 0;
+let skippedRight = 0;
+
+let used = 0;
+let skipped = 0;
 function runDayDataRecursive(data, i) {
     return new Promise((resolve) => {
         const dataToUse = data[i];
         if (!dataToUse) {
             console.log("DONE");
+            console.log("used: " + used);
+            console.log("skipped: " + skipped);
+            console.log("right: " + right);
+            console.log("wrong: " + wrong);
+            console.log("skipped right: " + skippedRight);
             resolve();
         } else {
             fetchMinutelyDataForSymsRecursive(dataToUse.syms, dataToUse.date, 0).then((symDataObj) => {
                 const tradeRatios = [];
-                dataToUse.syms.forEach((sym) => {
+                dataToUse.syms.forEach((sym, idx) => {
                     const symData = symDataObj[sym];
 
-                    const sellPrice = symData[0].o;
-                    let buyPrice = false;
-                    symData.forEach((bar, idx) => {
-                        // stop loss
-                        if (stopLoss && !buyPrice && bar.c > (1 + stopLoss) * sellPrice) {
-                            buyPrice = bar.c;
+                    // EXP - good/bad days & go through day for decision
+
+                    let useSym = false;
+
+                    let highPosition = 0;
+                    let high = 0;
+                    let low = false;
+                    let lowPosition = 0;
+                    let highs = 0;
+                    let lows = 0;
+                    const diffs = [];
+                    const open = symData[0].o;
+                    const close = symData[symData.length - 1].c;
+
+                    symData.forEach((bar, barIdx) => {
+                        if (bar.c > high) {
+                            high = bar.c;
+                            highPosition = barIdx;
                         }
-                        // take profit
-                        if (takeProfit && !buyPrice && bar.c < (1 - takeProfit) * sellPrice) {
-                            buyPrice = bar.c;
+                        if (!low || bar.c < low) {
+                            low = bar.c;
+                            lowPosition = barIdx;
                         }
-                        // cover at specific time
-                        if (coverAt && !buyPrice && idx === Math.floor(coverAt * symData.length)) {
-                            buyPrice = bar.c;
-                        }
-                        // bail at specific time if we lost money
-                        if (bailAt && !buyPrice && idx === Math.floor(bailAt * symData.length) && bar.c > sellPrice) {
-                            buyPrice = bar.c;
+                        if (barIdx > 0 && barIdx < symData.length - 1) {
+                            const sampleArr = [symData[barIdx- 1].c, bar.c, symData[barIdx+ 1].c];
+                            if (bar.c === Math.max(...sampleArr)) {
+                                highs += 1;
+                            }
+                            if (bar.c === Math.min(...sampleArr)) {
+                                lows += 1;
+                            }
+                            diffs.push((bar.c - symData[barIdx- 1].c));
                         }
                     });
-                    if (!buyPrice) {
-                        buyPrice = symData[symData.length - 1].c;
-                    }
+                    let diffSum = 0;
+                    diffs.forEach((n) => {
+                        diffSum += Math.abs(n);
+                    });
+                    const diffAve = diffSum / diffs.length;
 
-                    // EXP - buy to cover at certain points in the day
-                    // const partwayPrice = symData[Math.floor(0.75 * symData.length)].c;
-                    // if (partwayPrice < sellPrice) {
-                    //     buyPrice = partwayPrice;
-                    // } else {
+
+                    // useSym = highs < 120; // right 45 wrong 29
+                    // console.log(diffAve / symData.length);
+                    // useSym = highPosition > 0.3 * symData.length && highPosition < 0.7 * symData.length;
+                    // useSym = true;
+                    // useSym = highPosition > 2.5 * lowPosition;
+                    // useSym = lowPosition < 0.1 * symData.length;
+                    // useSym = (high - low) < 1.1 * (close - open);
+                    useSym = low > 0.99 * open;
+
+                    // console.log(highs);
+
+                    const tomorrowOpen = dataToUse.tomorrowOpens[idx];
+                    const tomorrowClose = dataToUse.tomorrowCloses[idx];
+
+                    // useSym = tomorrowClose < tomorrowOpen;
+
+                    // if (tomorrowOpen > tomorrowClose) {
+                    //     const fileToWrite = symData.map(ele => ele.c);
+                    //     fs.writeFileSync(`./data/goodDays/good${goodN}.txt`, JSON.stringify(fileToWrite));
+                    //     goodN += 1;
+                    // }
+                    // if (tomorrowOpen < tomorrowClose) {
+                    //     const fileToWrite = symData.map(ele => ele.c);
+                    //     fs.writeFileSync(`./data/badDays/${badN}.txt`, JSON.stringify(fileToWrite));
+                    //     badN += 1;
+                    // }
+                    let buyPrice;
+                    let sellPrice;
+                    if (useSym) {
+                        used += 1;
+                        sellPrice = tomorrowOpen;
+                        buyPrice = tomorrowClose;
+                        if (sellPrice > buyPrice) {
+                            right += 1;
+                        }
+                        if (sellPrice < buyPrice) {
+                            wrong += 1;
+                        }
+                    } else {
+                        skipped += 1;
+                        sellPrice = 1;
+                        buyPrice = 1;
+                        if (tomorrowOpen > tomorrowClose) {
+                            wrong += 1;
+                        }
+                        if (tomorrowOpen < tomorrowClose) {
+                            right += 1;
+                            skippedRight += 1;
+                        }
+                    }
+                    // END EXP
+
+                    // const sellPrice = symData[0].o;
+                    // let buyPrice = false;
+                    // symData.forEach((bar, idx) => {
+                    //     // stop loss
+                    //     if (stopLoss && !buyPrice && bar.c > (1 + stopLoss) * sellPrice) {
+                    //         buyPrice = bar.c;
+                    //     }
+                    //     // take profit
+                    //     if (takeProfit && !buyPrice && bar.c < (1 - takeProfit) * sellPrice) {
+                    //         buyPrice = bar.c;
+                    //     }
+                    //     // cover at specific time
+                    //     if (coverAt && !buyPrice && idx === Math.floor(coverAt * symData.length)) {
+                    //         buyPrice = bar.c;
+                    //     }
+                    //     // bail at specific time if we lost money
+                    //     if (bailAt && !buyPrice && idx === Math.floor(bailAt * symData.length) && bar.c > sellPrice) {
+                    //         buyPrice = bar.c;
+                    //     }
+                    // });
+                    // if (!buyPrice) {
                     //     buyPrice = symData[symData.length - 1].c;
                     // }
-                    // END EXP
 
                     tradeRatios.push(sellPrice / buyPrice);
                 });
 
                 const tradeRatio = tradeRatios.length > 0 ? arrAve(tradeRatios) : 1;
-                const tradeAmt = 0.667 * amt;
-                const reserveAmt = 0.333 * amt;
+                const tradeAmt = 0.5 * amt;
+                const reserveAmt = 0.5 * amt;
                 amt = (tradeRatio * tradeAmt) + reserveAmt;
                 console.log(amt);
                 

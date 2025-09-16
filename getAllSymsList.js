@@ -2,7 +2,7 @@ const { cacheBars, fetchBars, cacheLastResult, fetchLastResult, doesLastQueryMat
 const fs = require("fs");
 const { CREDS } = require("./CREDS");
 
-const nameForFile = "./data/allSymsA.txt";
+const nameForFile = "./data/allSymsC.txt";
 
 retrieveAllSymbols({
     assetRequirements: []
