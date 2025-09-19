@@ -5,7 +5,16 @@ const fs = require("fs");
 const startDate = "2025-01-01";
 const endDate = "2026-01-01";
 
-const fileToUse = "allSymsC";
+const fileToUse = "allSymsE";
+
+const filesToUse = [
+    "allSyms",
+    "allSymsA",
+    "allSymsB",
+    "allSymsC",
+    "allSymsD",
+    "allSymsE"
+];
 
 const useTopNum = 5;
 const shortCalc = true;
@@ -22,8 +31,29 @@ datesArr.forEach((date) => {
 });
 console.log(datesToUse);
 
-const allSymsArr = JSON.parse(fs.readFileSync(`./data/${fileToUse}.txt`));
-const allSyms = dataArrToSymObj(allSymsArr, "symbol");
+// const allSymsArr = JSON.parse(fs.readFileSync(`./data/${fileToUse}.txt`));
+// const allSyms = dataArrToSymObj(allSymsArr, "symbol");
+const allSyms = combineAllSymsFiles(filesToUse);
+
+function combineAllSymsFiles(filesToUse) {
+    const symsObj = {};
+    for (let i = 0; i < filesToUse.length; i++) {
+        const arr = JSON.parse(fs.readFileSync(`./data/${filesToUse[0]}.txt`));
+        arr.forEach((entry) => {
+            if (!symsObj[entry.symbol]) {
+                symsObj[entry.symbol] = entry;
+            } else {
+                if (entry.shortable) {
+                    symsObj[entry.symbol].shortable = true;
+                }
+                if (entry.easy_to_borrow) {
+                    symsObj[entry.symbol].easy_to_borrow = true;
+                }
+            }
+        });
+    }
+    return symsObj;
+}
 
 let amt = 100;
 const amts = [];
@@ -52,12 +82,21 @@ const numSymsTable = {};
 
 const weekDayUpDowns = {};
 const symHighs = {};
+let totalUpUps = 0;
+let totalUpDowns = 0;
+let totalDownUps = 0;
+let totalDownDowns = 0;
+
+let goodGuesses = 0;
+let badGuesses = 0;
 
 for (let i = 1; i < datesToUse.length; i++) {
     // const prevData = dataArrToSymObj(readDateData(datesToUse[i - 2]), "T");
     const yesterdayData = dataArrToSymObj(readDateData(datesToUse[i - 1]), "T");
     const todayData = dataArrToSymObj(readDateData(datesToUse[i]), "T");
     const tomorrowData = i === datesToUse.length - 1 ? false : dataArrToSymObj(readDateData(datesToUse[i + 1]), "T");
+
+    const fiveDayData = i > 5 ? dataArrToSymObj(readDateData(datesToUse[i - 5]), "T") : {};
 
     let lastDay = false;
     if (!tomorrowData) {
@@ -71,6 +110,9 @@ for (let i = 1; i < datesToUse.length; i++) {
     todaySyms.forEach((sym, j) => {
 
         const entry = todayData[sym];
+
+        
+
         if (j === 0) {
             // console.log(new Date(entry.t));
             weekDay = new Date(entry.t).getDay();
@@ -83,6 +125,45 @@ for (let i = 1; i < datesToUse.length; i++) {
                 }
             }
         }
+        if (entry.c > entry.o) {
+            weekDayUpDowns[weekDay].up += 1;
+            if (tomorrowData[sym] && tomorrowData[sym].c > tomorrowData[sym].o) {
+                totalUpUps += 1;
+            }
+            if (tomorrowData[sym] && tomorrowData[sym].c < tomorrowData[sym].o) {
+                totalUpDowns += 1;
+            }
+        }
+        if (entry.c < entry.o) {
+            weekDayUpDowns[weekDay].down += 1;
+            if (tomorrowData[sym] && tomorrowData[sym].c > tomorrowData[sym].o) {
+                totalDownUps += 1;
+            }
+            if (tomorrowData[sym] && tomorrowData[sym].c < tomorrowData[sym].o) {
+                totalDownDowns += 1;
+            }
+        }
+
+        // guessing
+        if (tomorrowData[sym] && i > 5) {
+            
+            if (
+                todayData[sym].c > 5
+                && fiveDayData[sym] && todayData[sym].c > 0.99 * fiveDayData[sym].c
+                && todayData["QQQ"].c > 1.01 * todayData["QQQ"].o
+                && todayData[sym].c > todayData[sym].o
+                && todayData[sym].c < 1.005 * todayData[sym].o
+                ) {
+            // if (todayData[sym].c > 30 && todayData[sym].c < todayData[sym].o && todayData[sym].c > 0.99 * todayData[sym].o) {
+                if (tomorrowData[sym].c > tomorrowData[sym].o) {
+                    goodGuesses += 1;
+                }
+                if (tomorrowData[sym].c < tomorrowData[sym].o) {
+                    badGuesses += 1;
+                }
+            }
+        }
+
         const close = entry.c;
         const open = entry.o;
 
@@ -106,9 +187,11 @@ for (let i = 1; i < datesToUse.length; i++) {
 
             if (allSyms[sym]) {
                 if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
+                // if (close > 5) {
                     // if (close > 1.15 * open && numShares < 0.02 * entry.v) { // STANDARD
                     if (close > 1.15 * open
                         && numShares < 0.02 * entry.v
+                        && entry.v > 100000
                         // && entry.h - entry.l > 1.3 * (close - open)
                         // && entry.o > 1.1 * entry.l
                         // && tomorrowData[sym] && tomorrowData[sym].o > 0.9 * close // means has gone down in overnight trading
@@ -271,14 +354,13 @@ for (let i = 1; i < datesToUse.length; i++) {
         console.log(amt);
         ratios.push(tradeRatio);
     
-        if (tradeRatio > 1) {
-            weekDayUpDowns[weekDay].up += 1;
-        }
-        if (tradeRatio < 1) {
-            weekDayUpDowns[weekDay].down += 1;
-        }
-        weekDayUpDowns[weekDay].ratio *= tradeRatio;
-        // weekDayUpDowns[weekDay].ratios.push(tradeRatio);
+        // if (tradeRatio > 1) {
+        //     weekDayUpDowns[weekDay].up += 1;
+        // }
+        // if (tradeRatio < 1) {
+        //     weekDayUpDowns[weekDay].down += 1;
+        // }
+        // weekDayUpDowns[weekDay].ratio *= tradeRatio;
     
     
         if (tradeRatio > 1) {
@@ -309,6 +391,12 @@ console.log("**************");
 console.log("repeats: " + amtRepeats);
 console.log("reverses: " + amtReverses);
 console.log("**************");
+console.log("up up: " + totalUpUps);
+console.log("up down: " + totalUpDowns);
+console.log("down up: " + totalDownUps);
+console.log("down down: " + totalDownDowns);
+console.log("good guesses: " + goodGuesses);
+console.log("bad guesses:  " + badGuesses);
 
 console.log(arrAve(actualFractions), Math.max(...actualFractions), Math.min(...actualFractions));
 console.log(arrAve(ratios));
@@ -318,6 +406,18 @@ console.log("down days: " + downDays);
 //     weekDayUpDowns[day].ratios = arrAve(weekDayUpDowns[day].ratios);
 // });
 console.log(weekDayUpDowns);
+// const days = [];
+// const dayRatios = [];
+// Object.keys(weekDayUpDowns).forEach((day) => {
+//     days.push(day);
+//     dayRatios.push(weekDayUpDowns[day].ratio);
+// });
+// days.forEach((n) => {
+//     console.log(n);
+// });
+// dayRatios.forEach((n) => {
+//     console.log(n);
+// });
 console.log("-------");
 console.log("qqqUp", qqqUp, qqqUp.up / qqqUp.down);
 console.log("qqqDown", qqqDown, qqqDown.up / qqqDown.down);
