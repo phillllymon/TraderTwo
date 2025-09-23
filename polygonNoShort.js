@@ -74,7 +74,7 @@ let upUpDown = {
 const tradesOnDay = {};
 
 const minPrice = 5;
-const minVol = 100000;
+const minVol = 1000000;
 const universalFraction = 1.01;
 const changeFraction = 1.00;
 const changeFractionA = 1.00;
@@ -235,11 +235,22 @@ for (let i = 2; i < datesToUse.length; i++) {
             const cUp = close > changeFractionB * open;
             const cDown = close * changeFractionB < open;
 
+            const nasDown = todayData["QQQ"].c < 0.99 * todayData["QQQ"].o;
+            const nasUp = todayData["QQQ"].c > 1.01 * todayData["QQQ"].o;
+
             const numShares = (amt / 5.0) / close;
             
             if (allSyms[sym]) {
-                if (close > minPrice && todayVol > minVol) {
-                    if ((aDown && bUp && cDown)) {
+                if (close < 5 && todayVol > minVol) {
+                    if (
+                        
+                        (
+                            nasDown
+                            && close < 0.95 * open 
+                            // && allSyms[sym] && !allSyms[sym].easy_to_borrow
+                        )
+                    ) {
+                    // if ((aDown && bUp && cDown)) {
                         symsToTrade.push({
                             date: entry.t,
                             sym: sym,

@@ -13,10 +13,13 @@ const filesToUse = [
     "allSymsB",
     "allSymsC",
     "allSymsD",
-    "allSymsE"
+    "allSymsE",
+    "allSymsF",
+    "allSymsG"
 ];
 
 const useTopNum = 5;
+const marginRequirement = 300;
 const shortCalc = true;
 
 const datesArr = createSimpleDaysArr(startDate, endDate);
@@ -145,14 +148,15 @@ for (let i = 1; i < datesToUse.length; i++) {
         }
 
         // guessing
-        if (tomorrowData[sym] && i > 5) {
+        if (tomorrowData[sym] && allSyms[sym] && i > 5) {
             
             if (
                 todayData[sym].c > 5
-                && fiveDayData[sym] && todayData[sym].c > 0.99 * fiveDayData[sym].c
-                && todayData["QQQ"].c > 1.01 * todayData["QQQ"].o
-                && todayData[sym].c > todayData[sym].o
-                && todayData[sym].c < 1.005 * todayData[sym].o
+                // && fiveDayData[sym] && todayData[sym].c > 1.05 * fiveDayData[sym].c
+                && todayData["QQQ"].c < 0.99 * todayData["QQQ"].o
+                // && todayData[sym].c > todayData[sym].o
+                && todayData[sym].c < 0.99 * todayData[sym].o
+                // && !allSyms[sym].shortable
                 ) {
             // if (todayData[sym].c > 30 && todayData[sym].c < todayData[sym].o && todayData[sym].c > 0.99 * todayData[sym].o) {
                 if (tomorrowData[sym].c > tomorrowData[sym].o) {
@@ -186,12 +190,22 @@ for (let i = 1; i < datesToUse.length; i++) {
             const numShares = (amt / 5.0) / close;
 
             if (allSyms[sym]) {
-                if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
-                // if (close > 5) {
+                // console.log(Number.parseFloat(allSyms[sym].margin_requirement_short));
+                // console.log(allSyms[sym])
+                // if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
+                if (close > 5) {
                     // if (close > 1.15 * open && numShares < 0.02 * entry.v) { // STANDARD
                     if (close > 1.15 * open
                         && numShares < 0.02 * entry.v
-                        && entry.v > 100000
+                        && entry.v > 1000000
+                        // && !allSyms[sym].easy_to_borrow
+                        // && !allSyms[sym].name.toLowerCase().includes("quantum")
+                        // && !allSyms[sym].name.toLowerCase().includes("lever")
+                        // && !allSyms[sym].name.toLowerCase().includes(" ai")
+                        && !sym.includes("Q")
+                        && !sym.includes("X")
+                        // && allSyms[sym].margin_requirement_short
+                        // && Number.parseFloat(allSyms[sym].margin_requirement_short) > 29 && Number.parseFloat(allSyms[sym].margin_requirement_short) < 31
                         // && entry.h - entry.l > 1.3 * (close - open)
                         // && entry.o > 1.1 * entry.l
                         // && tomorrowData[sym] && tomorrowData[sym].o > 0.9 * close // means has gone down in overnight trading
@@ -235,7 +249,7 @@ for (let i = 1; i < datesToUse.length; i++) {
     // console.log(modifiedSymsToTrade);
     if (modifiedSymsToTrade.length > 0) {
 
-        modifiedSymsToTrade.slice(modifiedSymsToTrade.length - useTopNum, modifiedSymsToTrade.length).forEach((symObj) => {
+        modifiedSymsToTrade.slice(Math.max(modifiedSymsToTrade.length - useTopNum, 0), modifiedSymsToTrade.length).forEach((symObj) => {
         // modifiedSymsToTrade.forEach((symObj) => {
             const sym = symObj.sym;
             const trade = symObj.trade;
@@ -319,20 +333,25 @@ for (let i = 1; i < datesToUse.length; i++) {
     if (lastDay) {
         const sampleSym = Object.keys(todayData)[0];
         console.log(`LAST DAY - ${new Date(todayData[sampleSym].t)}`);
-        console.log(tradedSyms);
+        console.log(tradedSyms.map(ele => [ele[0], Number.parseFloat(allSyms[ele[0]].margin_requirement_short), allSyms[ele[0]].easy_to_borrow]));
     } else {
         const tradeRatio = thisDayRatios.length > 0 ? arrAve(thisDayRatios) : 1;
         
         const oldAmt = amt;
         if (shortCalc) {
-            let amtToTrade = 0.5 * amt;
-            const reserveAmt = 0.5 * amt;
+            const marginFraction = 100.0 / marginRequirement;
+
+            let amtToTrade = marginFraction * amt;
+            const reserveAmt = amt - amtToTrade;
             // amtToTrade *= tradeRatio;
             
             const revenue = amtToTrade;
             const pricePaid = amtToTrade / tradeRatio;
             amtToTrade += revenue;
             amtToTrade -= pricePaid;
+
+            const borrowFee = (50 / 5000) * amtToTrade;
+            amtToTrade -= borrowFee;
             
             amt = amtToTrade + reserveAmt;
         } else {

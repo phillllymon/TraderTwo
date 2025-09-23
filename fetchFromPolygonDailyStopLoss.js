@@ -10,8 +10,8 @@ const useTopNum = 5;
 
 // use just fraction (i.e. 0.05 for 5% either direction)
 // set to false to not do either or both of these
-const stopLoss = 0.5;
-const takeProfit = false;
+const stopLoss = 0.05;
+const takeProfit = 0.1;
 
 // fraction of the day to cover at (i.e. 0.5 for halfway)
 const coverAt = false;
@@ -107,7 +107,7 @@ for (let i = 1; i < datesToUse.length; i++) {
     });
     
     // console.log(modifiedSymsToTrade);
-    modifiedSymsToTrade.slice(modifiedSymsToTrade.length - useTopNum, modifiedSymsToTrade.length).forEach((symObj) => {
+    modifiedSymsToTrade.slice(Math.max(modifiedSymsToTrade.length - useTopNum, 0), modifiedSymsToTrade.length).forEach((symObj) => {
     // modifiedSymsToTrade.forEach((symObj) => {
         const sym = symObj.sym;
         const trade = symObj.trade;
