@@ -92,6 +92,12 @@ let totalDownDowns = 0;
 
 let goodGuesses = 0;
 let badGuesses = 0;
+let aveFraction = 1;
+const guessFractions = [];
+let daysWithGuesses = 0;
+let daysNoGuesses = 0;
+let upGuessDays = 0;
+let downGuessDays = 0;
 
 for (let i = 1; i < datesToUse.length; i++) {
     // const prevData = dataArrToSymObj(readDateData(datesToUse[i - 2]), "T");
@@ -100,6 +106,14 @@ for (let i = 1; i < datesToUse.length; i++) {
     const tomorrowData = i === datesToUse.length - 1 ? false : dataArrToSymObj(readDateData(datesToUse[i + 1]), "T");
 
     const fiveDayData = i > 5 ? dataArrToSymObj(readDateData(datesToUse[i - 5]), "T") : {};
+
+    const pastGuessDaysNum = 5;
+    const recentDaysData = [];
+    if (i > pastGuessDaysNum) {
+        for (let j = pastGuessDaysNum; j > -1; j--) {
+            recentDaysData.push(dataArrToSymObj(readDateData(datesToUse[i - j]), "T"));
+        }
+    }
 
     let lastDay = false;
     if (!tomorrowData) {
@@ -110,6 +124,7 @@ for (let i = 1; i < datesToUse.length; i++) {
     const symsToTrade = [];
     let weekDay;
 
+    const todayGuessFractions = [];
     todaySyms.forEach((sym, j) => {
 
         const entry = todayData[sym];
@@ -148,17 +163,18 @@ for (let i = 1; i < datesToUse.length; i++) {
         }
 
         // guessing
-        if (tomorrowData[sym] && allSyms[sym] && i > 5) {
-            
-            if (
-                todayData[sym].c > 5
-                // && fiveDayData[sym] && todayData[sym].c > 1.05 * fiveDayData[sym].c
-                && todayData["QQQ"].c < 0.99 * todayData["QQQ"].o
-                // && todayData[sym].c > todayData[sym].o
-                && todayData[sym].c < 0.99 * todayData[sym].o
-                // && !allSyms[sym].shortable
-                ) {
-            // if (todayData[sym].c > 30 && todayData[sym].c < todayData[sym].o && todayData[sym].c > 0.99 * todayData[sym].o) {
+        if (tomorrowData[sym] && allSyms[sym] && i > pastGuessDaysNum) {
+            let guessThisOne = true;
+            recentDaysData.forEach((dayData) => {
+                // if (!dayData[sym] || dayData[sym].c < dayData[sym].o || dayData[sym].c > 1.01 * dayData[sym].o) {
+                // if (!dayData[sym] || dayData[sym].c < dayData[sym].o) {
+                if (!dayData[sym] || dayData[sym].c < 1.01 * dayData[sym].o) {
+                    guessThisOne = false;
+                }
+            });
+            if (guessThisOne) {
+                aveFraction *= tomorrowData[sym].c / tomorrowData[sym].o;
+                todayGuessFractions.push(tomorrowData[sym].c / tomorrowData[sym].o);
                 if (tomorrowData[sym].c > tomorrowData[sym].o) {
                     goodGuesses += 1;
                 }
@@ -181,11 +197,12 @@ for (let i = 1; i < datesToUse.length; i++) {
         
 
         if (yesterdayData[sym]) {
+        // if (true) {
 
-            const yesterdayOpen = yesterdayData[sym].o;
-            const yesterdayClose = yesterdayData[sym].c;
+            // const yesterdayOpen = yesterdayData[sym].o;
+            // const yesterdayClose = yesterdayData[sym].c;
             const todayVol = entry.v;
-            const yesterdayVol = yesterdayData[sym].v;
+            // const yesterdayVol = yesterdayData[sym].v;
 
             const numShares = (amt / 5.0) / close;
 
@@ -195,25 +212,34 @@ for (let i = 1; i < datesToUse.length; i++) {
                 // if (close > 5 && allSyms[sym].shortable === true && allSyms[sym].easy_to_borrow === true) {
                 if (close > 5) {
                     // if (close > 1.15 * open && numShares < 0.02 * entry.v) { // STANDARD
+                    // if (close > 1.15 * yesterdayData[sym].c
                     if (close > 1.15 * open
                         && numShares < 0.02 * entry.v
-                        && entry.v > 1000000
+                        && yesterdayData[sym].v > 1000000
+                        // && entry.v > 1000000
                         // && !allSyms[sym].easy_to_borrow
                         // && !allSyms[sym].name.toLowerCase().includes("quantum")
-                        // && !allSyms[sym].name.toLowerCase().includes("lever")
+                        && !allSyms[sym].name.toLowerCase().includes("lever")
                         // && !allSyms[sym].name.toLowerCase().includes(" ai")
                         && !sym.includes("Q")
                         && !sym.includes("X")
+                        && !sym.includes("LL")
+                        // && !allSyms[sym].name.toLowerCase().includes("2x")
+                        // && close < symHighs[sym]
                         // && allSyms[sym].margin_requirement_short
                         // && Number.parseFloat(allSyms[sym].margin_requirement_short) > 29 && Number.parseFloat(allSyms[sym].margin_requirement_short) < 31
                         // && entry.h - entry.l > 1.3 * (close - open)
                         // && entry.o > 1.1 * entry.l
                         // && tomorrowData[sym] && tomorrowData[sym].o > 0.9 * close // means has gone down in overnight trading
                         // && weekDay !== 3
-                        // && todayData["META"] && todayData["META"].c < todayData["META"].o
+                        // && todayData["SPY"] && todayData["SPY"].c < 1.005 * todayData["SPY"].o
                         // && todayData["AMZN"] && todayData["AMZN"].c > 1.005 * todayData["AMZN"].o
+                        
+                        // && tomorrowData["QQQ"] && tomorrowData["QQQ"].c < 1.00 * tomorrowData["QQQ"].o
+                        // && todayData["QQQ"] && todayData["QQQ"].c > 0.99 * todayData["QQQ"].o
                     ) {
                     // if (tomorrowData[sym] && tomorrowData[sym].o < close) {
+                    // if (true) {
                         symsToTrade.push({
                             sym: sym,
                             trade: "short",
@@ -229,6 +255,19 @@ for (let i = 1; i < datesToUse.length; i++) {
             }
         }
     });
+    if (todayGuessFractions.length > 0) {
+        const todayGuess = arrAve(todayGuessFractions);
+        guessFractions.push(todayGuess);
+        if (todayGuess > 1) {
+            upGuessDays += 1;
+        }
+        if (todayGuess < 1) {
+            downGuessDays += 1;
+        }
+        daysWithGuesses += 1;
+    } else {
+        daysNoGuesses += 1;
+    }
 
     let buySum = 0;
     let sellSum = 0;
@@ -257,7 +296,7 @@ for (let i = 1; i < datesToUse.length; i++) {
                 tradedSyms.push([sym, {
                     todayOpen: symObj.open,
                     todayClose: symObj.close,
-                    requirement: allSyms[sym].name,
+                    // requirement: allSyms[sym].name,
                     tomorrowOpen: lastDay ? "dunno" : tomorrowData[sym].o,
                     tomorrowClose: lastDay ? "dunno" : tomorrowData[sym].c
                 }]);
@@ -266,18 +305,21 @@ for (let i = 1; i < datesToUse.length; i++) {
                 }
     
                 if (trade === "short" && !lastDay) {
-                    // short next day open to close
-                    const thisRatio = tomorrowData[sym].o / tomorrowData[sym].c;
-                    thisDayRatios.push(thisRatio);
+                    // // short next day open to close
+                    // const thisRatio = tomorrowData[sym].o / tomorrowData[sym].c;
+                    // // const thisRatio = todayData[sym].c / tomorrowData[sym].c;
+                    // thisDayRatios.push(thisRatio);
     
                     // EXPERIMENT WITH % rules / stop loss
-                    // const open = tomorrowData[sym].o;
-                    // const close = tomorrowData[sym].c;
-                    // const low = tomorrowData[sym].l;
-                    // const high = tomorrowData[sym].h;
-                    // // const buyPrice = low < 0.8 * open ? 0.8 * open : close;
-                    // const buyPrice = high > 1.6 * open ? 1.6 * open : close;
-                    // thisDayRatios.push(open / buyPrice);
+                    const open = tomorrowData[sym].o;
+                    const close = tomorrowData[sym].c;
+                    const low = tomorrowData[sym].l;
+                    const high = tomorrowData[sym].h;
+                    const takeProfitFraction = 0.75;
+                    const buyPrice = low < takeProfitFraction * open ? takeProfitFraction * open : close;
+                    // const stopLossFraction = 1.15;
+                    // const buyPrice = high > stopLossFraction * open ? stopLossFraction * open : close;
+                    thisDayRatios.push(open / buyPrice);
     
     
                 }
@@ -338,26 +380,40 @@ for (let i = 1; i < datesToUse.length; i++) {
         const tradeRatio = thisDayRatios.length > 0 ? arrAve(thisDayRatios) : 1;
         
         const oldAmt = amt;
-        if (shortCalc) {
-            const marginFraction = 100.0 / marginRequirement;
 
-            let amtToTrade = marginFraction * amt;
-            const reserveAmt = amt - amtToTrade;
-            // amtToTrade *= tradeRatio;
-            
-            const revenue = amtToTrade;
-            const pricePaid = amtToTrade / tradeRatio;
-            amtToTrade += revenue;
-            amtToTrade -= pricePaid;
+        const tradeToday = true;
+        // const tradeToday = ratios.length < 3 || (ratios[ratios.length - 1] > 1);
+        // const tradeToday = todayData["QQQ"].c > todayData["QQQ"].o;
 
-            const borrowFee = (50 / 5000) * amtToTrade;
-            amtToTrade -= borrowFee;
-            
-            amt = amtToTrade + reserveAmt;
-        } else {
-            amt *= tradeRatio;
+        if (tradeToday) {
+
+            if (shortCalc) {
+                const marginFraction = 100.0 / marginRequirement;
+    
+                let amtToTrade = marginFraction * amt;
+                const reserveAmt = amt - amtToTrade;
+                // amtToTrade *= tradeRatio;
+                
+                const revenue = amtToTrade;
+                const pricePaid = amtToTrade / tradeRatio;
+                amtToTrade += revenue;
+                amtToTrade -= pricePaid;
+    
+                const borrowFee = (50 / 5000) * amtToTrade;
+                // amtToTrade -= borrowFee;
+                
+                amt = amtToTrade + reserveAmt;
+            } else {
+                amt *= tradeRatio;
+            }
+            actualFractions.push(amt / oldAmt);
+            if (tradeRatio > 1) {
+                upDays += 1;
+            }
+            if (tradeRatio < 1) {
+                downDays += 1;
+            }
         }
-        actualFractions.push(amt / oldAmt);
         
         if (tradeRatio < 1) {
             if (tradeRatio < maxLoss) {
@@ -382,12 +438,7 @@ for (let i = 1; i < datesToUse.length; i++) {
         // weekDayUpDowns[weekDay].ratio *= tradeRatio;
     
     
-        if (tradeRatio > 1) {
-            upDays += 1;
-        }
-        if (tradeRatio < 1) {
-            downDays += 1;
-        }
+        
     }
 
     
@@ -410,12 +461,24 @@ console.log("**************");
 console.log("repeats: " + amtRepeats);
 console.log("reverses: " + amtReverses);
 console.log("**************");
-console.log("up up: " + totalUpUps);
-console.log("up down: " + totalUpDowns);
-console.log("down up: " + totalDownUps);
-console.log("down down: " + totalDownDowns);
+// console.log("up up: " + totalUpUps);
+// console.log("up down: " + totalUpDowns);
+// console.log("down up: " + totalDownUps);
+// console.log("down down: " + totalDownDowns);
 console.log("good guesses: " + goodGuesses);
 console.log("bad guesses:  " + badGuesses);
+console.log("ave daily fraction: " + arrAve(guessFractions));
+console.log("days guessed: " + daysWithGuesses);
+console.log("days no guess: " + daysNoGuesses);
+console.log("up guess days: " + upGuessDays);
+console.log("down guess days: " + downGuessDays);
+// let guessAmt = 100;
+// guessFractions.forEach((fraction) => {
+//     guessAmt *= fraction;
+//     console.log(guessAmt);
+// });
+// console.log(guessAmt);
+console.log("************");
 
 console.log(arrAve(actualFractions), Math.max(...actualFractions), Math.min(...actualFractions));
 console.log(arrAve(ratios));
@@ -424,7 +487,7 @@ console.log("down days: " + downDays);
 // [1, 2, 3, 4, 5].forEach((day) => {
 //     weekDayUpDowns[day].ratios = arrAve(weekDayUpDowns[day].ratios);
 // });
-console.log(weekDayUpDowns);
+// console.log(weekDayUpDowns);
 // const days = [];
 // const dayRatios = [];
 // Object.keys(weekDayUpDowns).forEach((day) => {
@@ -437,11 +500,11 @@ console.log(weekDayUpDowns);
 // dayRatios.forEach((n) => {
 //     console.log(n);
 // });
-console.log("-------");
-console.log("qqqUp", qqqUp, qqqUp.up / qqqUp.down);
-console.log("qqqDown", qqqDown, qqqDown.up / qqqDown.down);
-console.log("worst day ratio: " + maxLoss);
-console.log("best day ratio: " + maxGain);
+// console.log("-------");
+// console.log("qqqUp", qqqUp, qqqUp.up / qqqUp.down);
+// console.log("qqqDown", qqqDown, qqqDown.up / qqqDown.down);
+// console.log("worst day ratio: " + maxLoss);
+// console.log("best day ratio: " + maxGain);
 // console.log("num syms table", numSymsTable);
 // allTradedSyms.forEach((sym) => {
 //     console.log(sym);

@@ -10,8 +10,12 @@ const useTopNum = 5;
 
 // use just fraction (i.e. 0.05 for 5% either direction)
 // set to false to not do either or both of these
-const stopLoss = 0.05;
-const takeProfit = 0.1;
+const stopLoss = false;
+const takeProfit = false;
+
+// fraction to take profit at, otherwise keep going
+const takeProfitAt = 0.1;           // how far in the day
+const takeProfitAtFraction = 0.95    // take only if this much profit
 
 // fraction of the day to cover at (i.e. 0.5 for halfway)
 const coverAt = false;
@@ -312,6 +316,10 @@ function runDayDataRecursive(data, i) {
                         }
                         // cover at specific time
                         if (coverAt && !buyPrice && idx === Math.floor(coverAt * symData.length)) {
+                            buyPrice = bar.c;
+                        }
+                        // cover at specific time if we made money
+                        if (takeProfitAt && !buyPrice && idx === Math.floor(takeProfitAt * symData.length) && bar.c < takeProfitAtFraction * sellPrice) {
                             buyPrice = bar.c;
                         }
                         // bail at specific time if we lost money
