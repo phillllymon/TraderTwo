@@ -1,5 +1,5 @@
 const { CREDS } = require("./CREDS");
-const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
+const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("./util");
 const fs = require("fs");
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 
@@ -10,12 +10,12 @@ const useTopNum = 5;
 
 // use just fraction (i.e. 0.05 for 5% either direction)
 // set to false to not do either or both of these
-const stopLoss = false;
-const takeProfit = false;
+const stopLoss = 0.1;
+const takeProfit = 0.2;
 
 // fraction to take profit at, otherwise keep going
-const takeProfitAt = 0.1;           // how far in the day
-const takeProfitAtFraction = 0.95    // take only if this much profit
+const takeProfitAt = false;           // how far in the day
+const takeProfitAtFraction = false;    // take only if this much profit
 
 // fraction of the day to cover at (i.e. 0.5 for halfway)
 const coverAt = false;
@@ -173,17 +173,6 @@ for (let i = 1; i < datesToUse.length; i++) {
     }
 }
 
-function readDateData(date) {
-    let answer = false;
-    try {
-        const dataArr = JSON.parse(fs.readFileSync(`./data/polygonDays/all${date}.txt`));
-        answer = dataArr;
-    } catch {
-        answer = false;
-    }
-    return answer;
-}
-
 let goodN = 0;
 let badN = 0;
 
@@ -319,7 +308,7 @@ function runDayDataRecursive(data, i) {
                             buyPrice = bar.c;
                         }
                         // cover at specific time if we made money
-                        if (takeProfitAt && !buyPrice && idx === Math.floor(takeProfitAt * symData.length) && bar.c < takeProfitAtFraction * sellPrice) {
+                        if (takeProfitAt && !buyPrice && idx === Math.floor(takeProfitAt * symData.length) && bar.c < (1 - takeProfitAtFraction) * sellPrice) {
                             buyPrice = bar.c;
                         }
                         // bail at specific time if we lost money

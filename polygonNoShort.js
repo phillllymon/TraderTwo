@@ -97,7 +97,7 @@ for (let i = lookBack; i < datesToUse.length; i++) {
             true
             && todayData[sym].c > 5
             // && todayData[sym].c < 300
-            && todayData[sym].v > 1000000
+            && todayData[sym].v > 10000000
             // && !sym.includes("ZZ")
             // && !sym.includes("LL")
 
@@ -137,24 +137,34 @@ for (let i = lookBack; i < datesToUse.length; i++) {
                 // }
 
                 // ------ option C
+                // let guessThisOne = false;
+                // if (
+                //     true
+                //     && recentDaysData[recentDaysData.length - 4][sym]
+                //     && recentDaysData[recentDaysData.length - 3][sym]
+                //     && recentDaysData[recentDaysData.length - 2][sym]
+                //     && recentDaysData[recentDaysData.length - 1][sym]
+                //     ) {
+                //     if (
+                //         true
+                //         // && recentDaysData[recentDaysData.length - 3][sym].c < 0.99 * recentDaysData[recentDaysData.length - 4][sym].c
+                //         // && recentDaysData[recentDaysData.length - 2][sym].c > 1.01 * recentDaysData[recentDaysData.length - 3][sym].c
+                //         && recentDaysData[recentDaysData.length - 1][sym].c < 0.99 * recentDaysData[recentDaysData.length - 2][sym].c
+                //         && recentDaysData[recentDaysData.length - 1][sym].c > 0.9 * recentDaysData[recentDaysData.length - 2][sym].c
+                //         && (lastDay || tomorrowData[sym].o < 0.95 * todayData[sym].c)
+                //     ) {
+                //         guessThisOne = true;
+                //     }
+                // }
+
+                // ------ option D
                 let guessThisOne = false;
                 if (
-                    true
-                    && recentDaysData[recentDaysData.length - 4][sym]
-                    && recentDaysData[recentDaysData.length - 3][sym]
-                    && recentDaysData[recentDaysData.length - 2][sym]
-                    && recentDaysData[recentDaysData.length - 1][sym]
-                    ) {
-                    if (
-                        true
-                        // && recentDaysData[recentDaysData.length - 3][sym].c < 0.99 * recentDaysData[recentDaysData.length - 4][sym].c
-                        // && recentDaysData[recentDaysData.length - 2][sym].c > 1.01 * recentDaysData[recentDaysData.length - 3][sym].c
-                        && recentDaysData[recentDaysData.length - 1][sym].c < 0.99 * recentDaysData[recentDaysData.length - 2][sym].c
-                        && recentDaysData[recentDaysData.length - 1][sym].c > 0.9 * recentDaysData[recentDaysData.length - 2][sym].c
-                        && (lastDay || tomorrowData[sym].o < 0.95 * todayData[sym].c)
-                    ) {
-                        guessThisOne = true;
-                    }
+                    recentDaysData[recentDaysData.length - 2][sym]
+                    && recentDaysData[recentDaysData.length - 2][sym].c > 50
+                    && recentDaysData[recentDaysData.length - 2][sym].c > 1.15 * recentDaysData[recentDaysData.length - 2][sym].o
+                ) {
+                    guessThisOne = true;
                 }
 
                 if (guessThisOne) {

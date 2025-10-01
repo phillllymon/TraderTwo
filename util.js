@@ -176,7 +176,44 @@ function dataArrToSymObj(arr, symKey) {
     return answerObj;
 }
 
+function createFractionMap(dayData) {
+    const answer = [];
+    dayData.forEach((bar) => {
+        answer.push(bar.o > 0 ? bar.c / bar.o : 1);
+    });
+    return answer;
+}
+
+function sumDiffsForFractionMaps(mapA, mapB) {
+    let long = mapA;
+    let short = mapB;
+    if (mapB.length > mapA.length) {
+        long = mapB;
+        short = mapA;
+    }
+    let sum = 0;
+    const diffFactor = long.length / short.length;
+    long.forEach((fraction, idx) => {
+        sum += Math.abs(fraction - ((short[Math.floor(idx / long.length)]) / diffFactor));
+    });
+    return sum;
+}
+
+function readDateData(date) {
+    let answer = false;
+    try {
+        const dataArr = JSON.parse(fs.readFileSync(`./data/polygonDays/all${date}.txt`));
+        answer = dataArr;
+    } catch {
+        answer = false;
+    }
+    return answer;
+}
+
 module.exports = {
+    readDateData,
+    createFractionMap,
+    sumDiffsForFractionMaps,
     daysDataToDayGroups,
     daysDataToDayGroupsRaw,
     findRValue,

@@ -305,21 +305,21 @@ for (let i = 1; i < datesToUse.length; i++) {
                 }
     
                 if (trade === "short" && !lastDay) {
-                    // // short next day open to close
-                    // const thisRatio = tomorrowData[sym].o / tomorrowData[sym].c;
-                    // // const thisRatio = todayData[sym].c / tomorrowData[sym].c;
-                    // thisDayRatios.push(thisRatio);
+                    // short next day open to close
+                    const thisRatio = tomorrowData[sym].o / tomorrowData[sym].c;
+                    // const thisRatio = todayData[sym].c / tomorrowData[sym].c;
+                    thisDayRatios.push(thisRatio);
     
                     // EXPERIMENT WITH % rules / stop loss
-                    const open = tomorrowData[sym].o;
-                    const close = tomorrowData[sym].c;
-                    const low = tomorrowData[sym].l;
-                    const high = tomorrowData[sym].h;
-                    const takeProfitFraction = 0.75;
-                    const buyPrice = low < takeProfitFraction * open ? takeProfitFraction * open : close;
-                    // const stopLossFraction = 1.15;
-                    // const buyPrice = high > stopLossFraction * open ? stopLossFraction * open : close;
-                    thisDayRatios.push(open / buyPrice);
+                    // const open = tomorrowData[sym].o;
+                    // const close = tomorrowData[sym].c;
+                    // const low = tomorrowData[sym].l;
+                    // const high = tomorrowData[sym].h;
+                    // const takeProfitFraction = 0.8;
+                    // const buyPrice = low < takeProfitFraction * open ? takeProfitFraction * open : close;
+                    // // const stopLossFraction = 1.15;
+                    // // const buyPrice = high > stopLossFraction * open ? stopLossFraction * open : close;
+                    // thisDayRatios.push(open / buyPrice);
     
     
                 }
