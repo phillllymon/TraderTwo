@@ -35,6 +35,16 @@ const fs = require("fs");
 
 const dates = [
     "2025-03-14",
+    "2025-07-07",
+    "2025-07-08",
+    "2025-07-09",
+    "2025-07-10",
+    "2025-07-11",
+    "2025-07-14",
+    "2025-07-15",
+    "2025-07-16",
+    "2025-07-17",
+    "2025-07-18",
     "2025-07-28",
     "2025-07-29",
     "2025-07-30",
@@ -80,11 +90,14 @@ const allFractions = [];
 let upDays = 0;
 let downDays = 0;
 
-const numSymsToUse = 10;
+const numSymsToUse = 5;
 const modelSym = false;
 const thresholdMins = 25;
 const takeProfit = 0.25;
-const steadyGain = true;
+const onlyGain = true;          // every 5 minute interval up to threshold must be a gain
+const increasingGain = false;   // every 5 minute interval up to threshold must be greater than previous
+const steadyGain = false;        // set to false or a number which is the fraction each gain must be within compared to last one
+const requiredUpFraction = 0.06;    // works well at 0.05 or 0.06
 
 let trends = 0;
 let reverses = 0;
@@ -93,6 +106,7 @@ dates.forEach((date) => {
     runDay(date, numSymsToUse);
 });
 
+console.log("total days: " + dates.length);
 console.log("up days: " + upDays);
 console.log("down days: " + downDays);
 console.log(arrAve(allFractions), Math.max(...allFractions), Math.min(...allFractions));
@@ -111,7 +125,7 @@ function runDay(dateToRun, useNum) {
         if (thisData.length > 0) {
             if (
                 true
-                && thisData[0].c > 1
+                && thisData[0].c > 5
                 && thisData[0].v > 1000
                 // && thisData[0].c < 20 
                 // && thisData[0].v * thisData[0].c > 1000
@@ -151,7 +165,7 @@ function runDay(dateToRun, useNum) {
             const close = closeBar.c;
             const thresholdPrice = thresholdBar.c;
             const diffFraction = (thresholdPrice - open) / open;
-            if (diffFraction > 0.03) {
+            if (diffFraction > requiredUpFraction) {
             // if (diffFraction < 0) {     // use smallest instead
 
                 // model EXP
@@ -173,13 +187,37 @@ function runDay(dateToRun, useNum) {
                 }
 
                 let checksPassed = true;
-                if (steadyGain) {
+                if (onlyGain) {
                     for (let j = 1; j < thresholdIdx; j++) {
                         const lastBar = symData[j - 1];
                         const thisBar = symData[j];
                         if (thisBar.c < lastBar.c) {
                             checksPassed = false;
                         }
+                    }
+                }
+                if (increasingGain) {
+                    let lastGain = symData[0].c - symData[0].o;
+                    for (let j = 1; j < thresholdIdx; j++) {
+                        const lastBar = symData[j - 1];
+                        const thisBar = symData[j];
+                        const thisGain = thisBar.c - lastBar.c;
+                        if (thisGain < lastGain) {
+                            checksPassed = false;
+                        }
+                        lastGain = thisGain;
+                    }
+                }
+                if (steadyGain) {
+                    let lastGain = symData[0].c - symData[0].o;
+                    for (let j = 1; j < thresholdIdx; j++) {
+                        const lastBar = symData[j - 1];
+                        const thisBar = symData[j];
+                        const thisGain = thisBar.c - lastBar.c;
+                        if (Math.abs(thisGain - lastGain) > steadyGain * lastGain) {
+                            checksPassed = false;
+                        }
+                        lastGain = thisGain;
                     }
                 }
 

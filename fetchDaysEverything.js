@@ -3,8 +3,8 @@ const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("
 const fs = require("fs");
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 
-const startDate = "2025-07-29";
-const endDate = "2025-08-03";
+const startDate = "2025-07-08";
+const endDate = "2025-07-13";
 
 const numMinutes = 5;
 
@@ -52,6 +52,7 @@ const allSyms = JSON.parse(fs.readFileSync("./data/allSymsD.txt")).map(ele => el
 // const allSyms = ["AAPL","GOOG"];
 
 // main
+let day = 0;
 fetchDataForDaysRecursive(datesArr, 0).then((res) => {
     
     res.forEach((dayData) => {
@@ -63,6 +64,7 @@ fetchDataForDaysRecursive(datesArr, 0).then((res) => {
 });
 
 function fetchDataForDaysRecursive(dates, i, dataSoFar) {
+    day = i;
     return new Promise((resolve) => {
         if (!dataSoFar) {
             dataSoFar = [];
@@ -102,7 +104,7 @@ function fetchDateDataForSymsRecursive(date, syms, i, dataSoFar) {
             fetchMinutelyOneDayOneSym(sym, date, numMinutes).then((data) => {
                 if (data) {
                     dataSoFar[sym] = data;
-                    console.log(`sym ${i} / ${syms.length}`);
+                    console.log(`sym ${i} / ${syms.length} day ${day} / ${datesArr.length} complete`);
                 }
                 dataSoFar["date"] = date;
                 fetchDateDataForSymsRecursive(date, syms, i + 1, dataSoFar).then(() => {

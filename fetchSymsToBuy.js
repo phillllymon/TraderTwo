@@ -3,13 +3,15 @@ const fs = require("fs");
 const { CREDS } = require("./CREDS");
 
 // run this at ~6:45am then confirm day closing price is current price if we're in a trading a day.
-fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${CREDS.polygonKey}`).then((res) => {
-    res.json().then((r) => {
-        r.tickers.slice(5000, 5005).forEach((info) => {
-            console.log(info.ticker, info.day.c);
-        });
-    });
-});
+// fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${CREDS.polygonKey}`).then((res) => {
+//     res.json().then((r) => {
+//         r.tickers.slice(5000, 5005).forEach((info) => {
+//             console.log(info.ticker, info.day.c);
+//         });
+//     });
+// });
+
+
 
 
 // RUN 25 minutes after market opens then quickly buy all syms returned
@@ -17,6 +19,7 @@ fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKe
 // NOTE: running this after market closes DOES NOT give you an accurate idea of how it would have worked that day
 const numToUse = 5;
 const intervalLength = 5;           // minutes
+const maxIntervalsForSteady = 5;
 const requiredUpFraction = 0.03;    // how much does it have to go up in the opening part of the day;
 
 const candidates = [];
@@ -47,11 +50,11 @@ fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKe
         fetchBarsSoFarRecursive(candidates.map(ele => ele.sym), 0).then((symBars) => {
             console.log(Object.keys(symBars));
 
-            Object.keys(symBars).forEach((sym) => {
-                const closePrice = symBars[sym][symBars[sym].length - 1].c;
-                const thresholdPrice = symBars[sym][5].c;
-                console.log(sym, closePrice / thresholdPrice);
-            });
+            // Object.keys(symBars).forEach((sym) => {
+            //     const closePrice = symBars[sym][symBars[sym].length - 1].c;
+            //     const thresholdPrice = symBars[sym][5].c;
+            //     console.log(sym, closePrice / thresholdPrice);
+            // });
         });
     });
 });
@@ -79,7 +82,7 @@ function fetchBarsSoFarRecursive(syms, i, dataSoFar) {
 }
 
 function barsAcceptable(bars) {
-    for (let i = 1; i < Math.min(bars.length, 5); i++) {
+    for (let i = 1; i < Math.min(bars.length, maxIntervalsForSteady); i++) {
         const prevBar = bars[i - 1];
         const thisBar = bars[i];
         if (thisBar.c < prevBar.c) {
