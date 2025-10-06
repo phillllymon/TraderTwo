@@ -1,103 +1,176 @@
+const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("./util");
 const fs = require("fs");
-const { fetchNews } = require("./fetchNews");
-const { queryChatGPT } = require("./chatGPT");
-const { fetchDaysAllStocks } = require("./fetchDays");
-const { daysDataToDayGroupsRaw, arrAve, findRValue } = require("./util");
-const { getQuotes } = require("./trader/trade");
 
-const startDate = "2021-08-01";
-const endDate = "2025-09-07";
-const recheckPeriod = 5;
-const checkForPriceDays = 760;
+const dates = [
+    // "2025-03-14",
+    // "2025-07-07",
+    // "2025-07-08",
+    // "2025-07-09",
+    // "2025-07-10",
+    // "2025-07-11",
+    // "2025-07-14",
+    // "2025-07-15",
+    // "2025-07-16",
+    // "2025-07-17",
+    // "2025-07-18",
+    // "2025-07-28",
+    // "2025-07-29",
+    // "2025-07-30",
+    // "2025-07-31",
+    "2025-08-01",
+    "2025-08-04",
+    "2025-08-05",
+    "2025-08-06",
+    "2025-08-07",
+    "2025-08-08",
+    "2025-08-11",
+    "2025-08-12",
+    "2025-08-13",
+    "2025-08-14",
+    "2025-08-15",
+    "2025-08-18",
+    "2025-08-19",
+    "2025-08-20",
+    "2025-08-21",
+    "2025-08-22",
+    "2025-08-25",
+    // "2025-09-08",
+    // "2025-09-09",
+    // "2025-09-10",
+    // "2025-09-11",
+    // "2025-09-15",
+    // "2025-09-16",
+    // "2025-09-17",
+    // "2025-09-18",
+    // "2025-09-19",
+    // "2025-09-22",
+    // "2025-09-23",
+    // "2025-09-24",
+    // "2025-09-25",
+    // "2025-09-26"
+];
 
-let params = {
-    useCache: true,
-    exchange: "NASDAQ",
-    // maxCurrentPrice: 0.06,
-    // minCurrentPrice: 0.05,
-    // maxEverPrice: 0.5,
-    // minEverPrice: 0.05,
-    maxStartPrice: 20,
-    minStartPrice: 0.1,
-    // maxStartPrice: 0.5,
-    // minStartPrice: 0.05,
-    // minStartVol: 1000,
-    assetRequirements: [
-        // "easy_to_borrow",
-        // "shortable"
-    ],
-};
+const bigData = JSON.parse(fs.readFileSync("./data/upSignalDays.txt"));
 
-fetchRawData("params", startDate, endDate).then((res) => {
-    const days = daysDataToDayGroupsRaw(res);
-    
-    let amt = 100;
-    const amts = [100];
+const profiles = [];
+Object.keys(bigData).forEach((key) => {
+    if (bigData[key].length === 79) {
+        profiles.push(bigData[key].map(ele => ele.c / ele.o));
+    }
+});
 
-    for (let i = checkForPriceDays; i < days.length; i += recheckPeriod) {
-        const firstDay = days[i];
-        let lastDay = days[i + recheckPeriod];
-        if (!lastDay) {
-            lastDay = days[days.length - 1];
-        }
-        let buySum = 0;
-        let sellSum = 0;
-        const missingSyms = [];
-        const firstSyms = Object.keys(firstDay);
+const aveProfile = [];
+for (let i = 0; i < 79; i++) {
+    const thisVals = [];
+    profiles.forEach((profile) => {
+        thisVals.push(profile[i]);
+    });
+    aveProfile.push(arrAve(thisVals));
+}
 
-        // vet syms that have gone way down
-        const maxPrices = {};      
-        days.slice(0, i).forEach((day) => {
-            Object.keys(day).forEach((sym) => {
-                const price = day[sym].price;
-                if (!maxPrices[sym]) {
-                    maxPrices[sym] = price;
-                } else {
-                    if (price > maxPrices[sym]) {
-                        maxPrices[sym] = price;
+const aveProfileSort = aveProfile.map((ele, i) => {
+    return {
+        val: ele,
+        i: i
+    };
+}).sort((a, b) => {
+    if (a.val > b.val) {
+        return 1;
+    } else {
+        return -1;
+    }
+});
+
+let goodGuesses = 0;
+let badGuesses = 0;
+let didNotGuess = 0;
+
+const ratios = [];
+
+dates.forEach((date, i) => {
+    console.log(i, "/", dates.length);
+    const todayRatios = [];
+    if (dates[i + 1]) {
+        const todayData = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${date}-0-11000.txt`));
+        const tomorrowData = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dates[i + 1]}-0-11000.txt`));
+        const syms = [];
+        const todaySyms = Object.keys(todayData);
+        todaySyms.forEach((sym) => {
+            if (tomorrowData[sym] && todayData[sym].length === 79) {
+                syms.push(sym);
+            }
+        });
+        syms.forEach((sym) => {
+
+            let steadyScore = 0;
+            todayData[sym].forEach((bar, idx) => {
+                if (idx > 0) {
+                    if (bar.c > todayData[sym][idx - 1].c) {
+                        steadyScore += 1;
                     }
                 }
             });
-        });
 
-        const usedSyms = [];
-        firstSyms.forEach((sym) => {
-            // if (!maxPrices[sym] || maxPrices[sym] < 0.5) {
-            // if (maxPrices[sym] && maxPrices[sym] < 0.5) {
-                buySum += firstDay[sym].price;
-                usedSyms.push(sym);
-                if (lastDay[sym]) {
-                    sellSum += lastDay[sym].price;
-                } else {
-                    missingSyms.push(sym);
+            if (steadyScore > 50) {
+                const tomorrowRatio = tomorrowData[sym][tomorrowData[sym].length - 1].c / tomorrowData[sym][0].o;
+                todayRatios.push(tomorrowRatio);
+                if (tomorrowRatio > 1) {
+                    goodGuesses += 1;
                 }
+                if (tomorrowRatio < 1) {
+                    badGuesses += 1;
+                }
+            } else {
+                didNotGuess += 1;
+            }
+
+            // const thisProfile = todayData[sym].map(ele => ele.c / ele.o);
+            // const thisProfileSort = thisProfile.map((ele, i) => {
+            //     return {
+            //         val: ele,
+            //         i: i
+            //     };
+            // }).sort((a, b) => {
+            //     if (a.val > b.val) {
+            //         return 1;
+            //     } else {
+            //         return -1;
+            //     }
+            // });
+            // let diffSum = 0;
+            // thisProfileSort.forEach((eleA, idx) => {
+            //     diffSum += Math.abs(eleA.i - aveProfileSort[idx].i);
+            // });
+            // // console.log(diffSum);
+            // if (diffSum < 1600) {
+            //     const tomorrowRatio = tomorrowData[sym][tomorrowData[sym].length - 1].c / tomorrowData[sym][0].o;
+            //     todayRatios.push(tomorrowRatio);
+            //     if (tomorrowRatio > 1) {
+            //         goodGuesses += 1;
+            //     }
+            //     if (tomorrowRatio < 1) {
+            //         badGuesses += 1;
+            //     }
+            // } else {
+            //     didNotGuess += 1;
             // }
         });
-        const tradeRatio = buySum > 0 ? sellSum / buySum : 1;
-        amt *= tradeRatio;
-        amts.push(amt);
-        console.log(missingSyms, usedSyms);
     }
-
-    amts.forEach((n) => {
-        console.log(n);
-    });
-    
-    
-
+    if (todayRatios.length > 0) {
+        ratios.push(arrAve(todayRatios));
+    } else {
+        ratios.push(1);
+    }
 });
 
+console.log("good guesses: " + goodGuesses);
+console.log("bad guesses: " + badGuesses);
+console.log("no guess: " + didNotGuess);
 
-function fetchRawData(source, startTime, endTime) {
-    return new Promise((resolve) => {
-        if (source === "params") {
-            fetchDaysAllStocks(startTime, endTime, params).then((res) => {
-                resolve(res);
-            });
-        } else {
-            const rawFile = fs.readFileSync(source);
-            const res = JSON.parse(rawFile);
-            resolve(res);
-        }
-    });
-}
+let amt = 100;
+console.log(amt);
+ratios.forEach((ratio) => {
+    amt *= ratio;
+    console.log(amt);
+});
+// console.log(ratios);

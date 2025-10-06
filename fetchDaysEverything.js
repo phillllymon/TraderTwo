@@ -3,8 +3,8 @@ const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("
 const fs = require("fs");
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 
-const startDate = "2025-07-08";
-const endDate = "2025-07-13";
+const startDate = "2025-05-20";
+const endDate = "2025-06-01";
 
 const numMinutes = 5;
 

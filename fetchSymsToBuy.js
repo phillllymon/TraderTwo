@@ -4,7 +4,9 @@ const { CREDS } = require("./CREDS");
 
 // run this at ~6:45am then confirm day closing price is current price if we're in a trading a day.
 // fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${CREDS.polygonKey}`).then((res) => {
+//     // console.log(res);
 //     res.json().then((r) => {
+//         // console.log(r);
 //         r.tickers.slice(5000, 5005).forEach((info) => {
 //             console.log(info.ticker, info.day.c);
 //         });
@@ -20,7 +22,7 @@ const { CREDS } = require("./CREDS");
 const numToUse = 5;
 const intervalLength = 5;           // minutes
 const maxIntervalsForSteady = 5;
-const requiredUpFraction = 0.03;    // how much does it have to go up in the opening part of the day;
+const requiredUpFraction = 0.04;    // how much does it have to go up in the opening part of the day;
 
 const candidates = [];
 const dateToUse = new Date().toISOString().slice(0, 10);
@@ -82,14 +84,18 @@ function fetchBarsSoFarRecursive(syms, i, dataSoFar) {
 }
 
 function barsAcceptable(bars) {
-    for (let i = 1; i < Math.min(bars.length, maxIntervalsForSteady); i++) {
-        const prevBar = bars[i - 1];
-        const thisBar = bars[i];
-        if (thisBar.c < prevBar.c) {
-            return false;
+    if (bars.length > 4) {
+        for (let i = 1; i < bars.length; i++) {
+            const prevBar = bars[i - 1];
+            const thisBar = bars[i];
+            if (thisBar.c < prevBar.c) {
+                return false;
+            }
         }
+        return true;
+    } else {
+        return false;
     }
-    return true;
 }
 
 function passChecks(info) {
@@ -105,40 +111,6 @@ function passChecks(info) {
 }
 
 
-
-
-const dateToFetch = "2025-09-30";
-
-const useNum = 5;
-const symsToUse = [];
-
-// fetchDaySummaryWholeMarket(dateToFetch).then((dayData) => {
-//     if (dayData) {
-//         dayData.forEach((bar) => {
-//             if (bar.c > 5 && bar.v > 6000000) {
-//                 const diffFraction = (bar.c - bar.o) / bar.o;
-//                 if (symsToUse.length === 0 || diffFraction > symsToUse[0].diffFraction) {
-//                     symsToUse.push({
-//                         sym: bar.T,
-//                         diffFraction: diffFraction,
-//                         close: bar.c
-//                     });
-//                     symsToUse.sort((a, b) => {
-//                         if (a.diffFraction > b.diffFraction) {
-//                             return 1;
-//                         } else {
-//                             return -1;
-//                         }
-//                     });
-//                     while (symsToUse.length > useNum) {
-//                         symsToUse.shift();
-//                     }
-//                 }
-//             }
-//         });
-//         console.log(symsToUse);
-//     }
-// });
 
 function fetchDaySummaryWholeMarket(date) {
     return new Promise((resolve) => {
