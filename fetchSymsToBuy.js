@@ -2,26 +2,12 @@ const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 const fs = require("fs");
 const { CREDS } = require("./CREDS");
 
-// run this at ~6:45am then confirm day closing price is current price if we're in a trading a day.
-// fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${CREDS.polygonKey}`).then((res) => {
-//     // console.log(res);
-//     res.json().then((r) => {
-//         // console.log(r);
-//         r.tickers.slice(5000, 5005).forEach((info) => {
-//             console.log(info.ticker, info.day.c);
-//         });
-//     });
-// });
-
-
-
-
 // RUN 25 minutes after market opens then quickly buy all syms returned
 // sell all at close
 // NOTE: running this after market closes DOES NOT give you an accurate idea of how it would have worked that day
 const numToUse = 5;
-const intervalLength = 5;           // minutes
-const maxIntervalsForSteady = 5;
+const intervalLength = 5; 
+const numIntervals = 5;             // minutes
 const requiredUpFraction = 0.04;    // how much does it have to go up in the opening part of the day;
 
 const candidates = [];
@@ -84,8 +70,8 @@ function fetchBarsSoFarRecursive(syms, i, dataSoFar) {
 }
 
 function barsAcceptable(bars) {
-    if (bars.length > 4) {
-        for (let i = 1; i < bars.length; i++) {
+    if (bars.length > numIntervals - 1) {
+        for (let i = 1; i < numIntervals; i++) {
             const prevBar = bars[i - 1];
             const thisBar = bars[i];
             if (thisBar.c < prevBar.c) {
@@ -101,27 +87,11 @@ function barsAcceptable(bars) {
 function passChecks(info) {
     if (
         true
-        && info.day.v > 100000
+        && info.day.v > 10000
         && info.day.c > 5
     ) {
         return true;
     } else {
         return false;
     }
-}
-
-
-
-function fetchDaySummaryWholeMarket(date) {
-    return new Promise((resolve) => {
-        fetch(`https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${date}?adjusted=true&apiKey=${CREDS.polygonKey}`).then((res) => {
-            res.json().then((r) => {
-                if (r.resultsCount < 1) {
-                    resolve(false);
-                } else {
-                    resolve(r.results);
-                }
-            });
-        });
-    });
 }

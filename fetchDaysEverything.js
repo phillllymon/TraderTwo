@@ -3,8 +3,9 @@ const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("
 const fs = require("fs");
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 
-const startDate = "2025-05-20";
-const endDate = "2025-06-01";
+// fetches 5 minute data for the dates used for buy algo
+const startDate = "2025-10-08";
+const endDate = "2025-10-09";
 
 const numMinutes = 5;
 
@@ -14,39 +15,6 @@ const datesArr = createSimpleDaysArr(startDate, endDate);
 const startSlice = 0;
 const endSlice = 11000;
 // --------------
-
-// const startSlice = 0;
-// const endSlice = 1000;
-
-// const startSlice = 1000;
-// const endSlice = 2000;
-
-// const startSlice = 2000;
-// const endSlice = 3000;
-
-// const startSlice = 3000;
-// const endSlice = 4000;
-
-// const startSlice = 4000;
-// const endSlice = 5000;
-
-// const startSlice = 5000;
-// const endSlice = 6000;
-
-// const startSlice = 6000;
-// const endSlice = 7000;
-
-// const startSlice = 7000;
-// const endSlice = 8000;
-
-// const startSlice = 8000;
-// const endSlice = 9000;
-
-// const startSlice = 9000;
-// const endSlice = 10000;
-
-// const startSlice = 10000;
-// const endSlice = 11000;
 
 const allSyms = JSON.parse(fs.readFileSync("./data/allSymsD.txt")).map(ele => ele.symbol).slice(startSlice, endSlice);
 // const allSyms = ["AAPL","GOOG"];

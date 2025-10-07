@@ -426,7 +426,7 @@ for (let i = 1; i < datesToUse.length; i++) {
         }
 
         amts.push(amt);
-        console.log(amt);
+        console.log(amt, tradedSyms.map(ele => ele[0]));
         ratios.push(tradeRatio);
     
         // if (tradeRatio > 1) {

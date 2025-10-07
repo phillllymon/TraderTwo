@@ -35,37 +35,31 @@ const fs = require("fs");
 
 const dates = [
     "2025-03-14",
-
     "2025-05-19",
     "2025-05-20",
     "2025-05-21",
     "2025-05-22",
     "2025-05-23",
-
     "2025-05-26",
     "2025-05-27",
     "2025-05-28",
     "2025-05-29",
     "2025-05-30",
-
     "2025-06-02",
     "2025-06-03",
     "2025-06-04",
     "2025-06-05",
     "2025-06-06",
-
     "2025-06-09",
     "2025-06-10",
     "2025-06-11",
     "2025-06-12",
     "2025-06-13",
-
     "2025-06-16",
     "2025-06-17",
     "2025-06-18",
     "2025-06-19",
     "2025-06-20",
-
     "2025-06-23",
     "2025-06-24",
     "2025-06-25",
@@ -124,7 +118,9 @@ const dates = [
     "2025-09-30",
     "2025-10-01",
     "2025-10-02",
-    "2025-10-03"
+    "2025-10-03",
+    "2025-10-06",
+    "2025-10-07"
 ];
 
 // main
@@ -169,13 +165,15 @@ function runDay(dateToRun, useNum) {
     const syms = [];
     
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
+    // Object.keys(data).slice(1000, 1500).forEach((sym) => {
     Object.keys(data).forEach((sym) => {
         const thisData = data[sym];
-        if (thisData.length > 0) {
+        if (thisData.length > 70) {
             if (
                 true
                 && thisData[0].c > 5
-                && thisData[0].v > 1000
+                // && thisData[0].v > 1000
+                && thisData[0].v + thisData[1].v + thisData[2].v + thisData[3].v + thisData[4].v > 10000
                 // && thisData[0].c < 20 
                 // && thisData[0].v * thisData[0].c > 1000
             ) {
@@ -202,6 +200,8 @@ function runDay(dateToRun, useNum) {
 
             const minutesPerBar = 390 / numBars;
             const thresholdIdx = Math.floor(thresholdMins / minutesPerBar);
+            // const thresholdIdx = 5;
+            // console.log(thresholdIdx);
             const nextBar = symData[thresholdIdx + 1];
             const openBar = symData[0];
             const thresholdBar = symData[thresholdIdx];
@@ -366,122 +366,14 @@ function runDay(dateToRun, useNum) {
         }
     }
     // console.log(amt, useFractions.length);
-    // console.log(amt, candidates.map(ele => ele.sym));
-    console.log(amt);
+    console.log(amt, candidates.map(ele => ele.sym));
+    // console.log(amt, candidates.map((ele, i) => {
+    //     return {
+    //         sym: ele.sym,
+    //         ratio: useFractions[i],
+    //         threshold: ele.thresholdPrice,
+    //         close: ele.close,
+    //     }
+    // }));
+    // console.log(amt);
 }
-
-
-
-
-
-
-// const allData = {};
-// const syms = [];
-
-// filesToUse.forEach((fileName) => {
-//     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${fileName}.txt`));
-//     Object.keys(data).forEach((sym) => {
-//         const thisData = data[sym];
-//         if (thisData.length > 0) {
-//             if (thisData[0].c > 5 && thisData[0].v > 1000000) {
-//                 allData[sym] = data[sym];
-//                 syms.push(sym);
-//             }
-//         }
-//     });
-// });
-
-
-// let continues = 0;
-// let reverses = 0;
-// const thresholdMins = 30;
-
-// const useMaxNum = 1;
-
-// const upFractions = [];
-// const downFractions = [];
-
-// const upSyms = [];
-// const downSyms = [];
-
-// const candidates = [];
-
-// syms.forEach((sym, i) => {
-//     const symData = allData[sym];
-//     const numBars = symData.length;
-//     if (numBars > 70) {
-//         const minutesPerBar = 390 / numBars;
-//         const thresholdIdx = Math.floor(thresholdMins / minutesPerBar);
-//         const openBar = symData[0];
-//         const thresholdBar = symData[thresholdIdx];
-//         const closeBar = symData[symData.length - 1];
-//         // if (i === 0) {
-//         //     const timeDiff = thresholdBar.t - openBar.t;
-//         //     const hoursDiff = timeDiff / 3600000;
-//         //     console.log(hoursDiff);
-//         // }
-//         const open = openBar.o;
-//         const close = closeBar.c;
-//         const thresholdPrice = thresholdBar.c;
-//         const diffFraction = (thresholdPrice - open) / open;
-//         if (diffFraction > 0) {
-            
-//             // ****** use all positives *****
-//             // if (diffFraction > 0) {
-//             //     candidates.push({
-//             //         sym: sym,
-//             //         diffFraction: diffFraction,
-//             //         thresholdPrice: thresholdPrice,
-//             //         close: close
-//             //     });
-//             // }
-            
-//             // ***** use set number *****
-//             if (candidates.length === 0 || diffFraction > candidates[0].diffFraction) {
-//                 candidates.push({
-//                     sym: sym,
-//                     diffFraction: diffFraction,
-//                     thresholdPrice: thresholdPrice,
-//                     close: close
-//                 });
-//                 candidates.sort((a, b) => {
-//                     if (a.diffFraction > b.diffFraction) {
-//                         return 1;
-//                     } else {
-//                         return -1;
-//                     }
-//                 });
-//                 while (candidates.length > useMaxNum) {
-//                     candidates.shift();
-//                 }
-//             }
-
-//             if (close > thresholdPrice) {
-//                 upFractions.push((close - thresholdPrice) / thresholdPrice);
-//                 upSyms.push(sym);
-//                 continues += 1;
-//             }
-//             if (close < thresholdPrice) {
-//                 downFractions.push((close - thresholdPrice) / thresholdPrice);
-//                 downSyms.push(sym);
-//                 reverses += 1;
-//             }
-//         }
-//     }
-// });
-
-
-// const useFractions = [];
-// candidates.forEach((candidateObj) => {
-//     useFractions.push((candidateObj.close - candidateObj.thresholdPrice) / candidateObj.thresholdPrice);
-// });
-// console.log(candidates.map(ele => ele.sym));
-// console.log(arrAve(useFractions));
-
-// console.log("continues: " + continues);
-// console.log("reverses: " + reverses);
-// console.log("up fractions: " + arrAve(upFractions));
-// console.log("down fractions: " + arrAve(downFractions));
-// console.log("total fraction:" + arrAve(upFractions.concat(downFractions)), upFractions.concat(downFractions).length);
-// console.log("up", upSyms);
-// console.log("down", downSyms);

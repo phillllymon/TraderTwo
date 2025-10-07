@@ -2,7 +2,7 @@ const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 const fs = require("fs");
 const { CREDS } = require("./CREDS");
 
-// run this at 6:33am then wait till 6:58am to see what tickers to buy
+// run this at ~6:31am and verify the timestamp is after 6:30. Then wait till it's over (around 6:56am) and buy the returned syms
 
 // ----- inputs -----
 const intervalLength = 5;   // minutes
@@ -25,7 +25,7 @@ fetchCurrentMarketSnapshot().then((marketSnapshot) => {
         if (info.min.c > minPrice) {
             masterData[info.ticker] = [{
                 timestamp: info.min.t,
-                price: info.min.c,
+                price: info.day.o,
                 vol: info.min.v
             }];
         }
