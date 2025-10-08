@@ -1,14 +1,17 @@
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 const fs = require("fs");
 const { CREDS } = require("./CREDS");
+const { params } = require("./buyParams");
 
 // RUN 25 minutes after market opens then quickly buy all syms returned
 // sell all at close
 // NOTE: running this after market closes DOES NOT give you an accurate idea of how it would have worked that day
-const numToUse = 5;
-const intervalLength = 5; 
-const numIntervals = 5;             // minutes
-const requiredUpFraction = 0.04;    // how much does it have to go up in the opening part of the day;
+const numToUse = params.numSymsToUse;
+const intervalLength = params.minutesPerInterval; 
+const numIntervals = params.thresholdMins / intervalLength;             // minutes
+const requiredUpFraction = params.upFraction;    // how much does it have to go up in the opening part of the day;
+const minPrice = params.minPriceToUse;
+const minVol = params.minVolumeToUse;
 
 const candidates = [];
 const dateToUse = new Date().toISOString().slice(0, 10);
@@ -70,7 +73,8 @@ function fetchBarsSoFarRecursive(syms, i, dataSoFar) {
 }
 
 function barsAcceptable(bars) {
-    if (bars.length > numIntervals - 1) {
+    // allow for 1 missing bar
+    if (bars.length > numIntervals - 2) {
         for (let i = 1; i < numIntervals; i++) {
             const prevBar = bars[i - 1];
             const thisBar = bars[i];
@@ -87,8 +91,8 @@ function barsAcceptable(bars) {
 function passChecks(info) {
     if (
         true
-        && info.day.v > 10000
-        && info.day.c > 5
+        && info.day.v > minVol
+        && info.day.o > minPrice
     ) {
         return true;
     } else {

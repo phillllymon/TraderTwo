@@ -1,107 +1,52 @@
-const { CREDS } = require("./CREDS");
-const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
-const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
-const fs = require("fs");
 
-const startDate = "2025-01-01";
-const endDate = "2025-03-01";
 
-const filesToUse = [
-    "allSyms",
-    "allSymsA",
-    "allSymsB",
-    "allSymsC",
-    "allSymsD",
-    "allSymsE",
-    "allSymsF",
-    "allSymsG"
-];
+const dateToUse = "2025-10-07";
 
-const datesArr = createSimpleDaysArr(startDate, endDate);
-// console.log(datesArr);
+const ms = eastern930Timestamp(dateToUse);
 
-// main for general test
-const datesToUse = [];
-datesArr.forEach((date) => {
-    if (readDateData(date)) {
-        datesToUse.push(date);
+console.log(new Date(ms));
+
+
+
+
+function eastern930Timestamp(dateStr) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      throw new Error('dateStr must be in YYYY-MM-DD format');
     }
-});
-
-const allSyms = combineAllSymsFiles(filesToUse);
-const syms = Object.keys(allSyms);
-
-const upSymDateObjs = [];
-
-for (let i = 1; i < datesToUse.length; i++) {
-    const todayData = dataArrToSymObj(readDateData(datesToUse[i]), "T");
-    syms.forEach((sym) => {
-        if (
-            todayData[sym] 
-            && todayData[sym].c > 1.25 * todayData[sym].o
-            && todayData[sym].c > 5    
-        ) {
-            upSymDateObjs.push({
-                sym: sym,
-                yesterdayDate: datesToUse[i - 1]
-            });
-        }
+  
+    const [year, month, day] = dateStr.split('-').map(Number);
+  
+    // UTC midnight for that date (an instant)
+    const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  
+    // Formatter that shows what that UTC instant is in America/New_York
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
     });
-}
-
-fetchMinutelyDataForArrRecursive(upSymDateObjs, 0).then((bigData) => {
-    console.log(Object.keys(bigData).length);
-    fs.writeFileSync("./data/upSignalDays.txt", JSON.stringify(bigData));
-});
-
-function fetchMinutelyDataForArrRecursive(data, i, dataSoFar) {
-    console.log(i, "/", data.length);
-    return new Promise((resolve) => {
-        if (!dataSoFar) {
-            dataSoFar = {};
-        }
-        const thisData = data[i];
-        if (thisData) {
-            fetchMinutelyOneDayOneSym(thisData.sym, thisData.yesterdayDate, 5).then((dayData) => {
-                const code = `${thisData.sym}-${thisData.yesterdayDate}`;
-                dataSoFar[code] = dayData;
-                fetchMinutelyDataForArrRecursive(data, i + 1, dataSoFar).then((res) => {
-                    resolve(res);
-                });
-            });
-        } else {
-            resolve(dataSoFar);
-        }
-    });
-}
-
-function readDateData(date) {
-    let answer = false;
-    try {
-        const dataArr = JSON.parse(fs.readFileSync(`./data/polygonDays/all${date}.txt`));
-        answer = dataArr;
-    } catch {
-        answer = false;
-    }
-    return answer;
-}
-
-function combineAllSymsFiles(filesToUse) {
-    const symsObj = {};
-    for (let i = 0; i < filesToUse.length; i++) {
-        const arr = JSON.parse(fs.readFileSync(`./data/${filesToUse[0]}.txt`));
-        arr.forEach((entry) => {
-            if (!symsObj[entry.symbol]) {
-                symsObj[entry.symbol] = entry;
-            } else {
-                if (entry.shortable) {
-                    symsObj[entry.symbol].shortable = true;
-                }
-                if (entry.easy_to_borrow) {
-                    symsObj[entry.symbol].easy_to_borrow = true;
-                }
-            }
-        });
-    }
-    return symsObj;
-}
+  
+    const parts = dtf.formatToParts(utcMidnight);
+    const map = {};
+    parts.forEach(p => { if (p.type !== 'literal') map[p.type] = p.value; });
+  
+    // Interpret the formatted parts as a system-local Date (new Date(y,m-1,d,h,m,s))
+    const localFromFmtMs = new Date(
+      Number(map.year),
+      Number(map.month) - 1,
+      Number(map.day),
+      Number(map.hour),
+      Number(map.minute),
+      Number(map.second)
+    ).getTime();
+  
+    // offset = (UTC-instant) - (system-local timestamp that shows same wall-time)
+    const offset = utcMidnight.getTime() - localFromFmtMs;
+  
+    // system-local timestamp for YYYY-MM-DD 09:30
+    const systemLocal930Ms = new Date(year, month - 1, day, 9, 30, 0).getTime();
+  
+    // adjust to the target timezone instant
+    return systemLocal930Ms + offset;
+  }

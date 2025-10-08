@@ -103,10 +103,12 @@ let downDays = 0;
 
 const numSymsToUse = params.numSymsToUse;
 const modelSym = false;
-const thresholdMins = params.thresholdMins;
+const thresholdMins = 25;
+const requiredUpFraction = 0.05;    // works well at 0.05 or 0.06
+const maxUpFraction = 0.2;
 
-const minVol = params.minVolumeToUse;
-const minPrice = params.minPriceToUse;
+const minVol = 10000;
+const minPrice = 5;
 
 const nextBarOffset = 1;
 const takeProfit = 0.2;
@@ -114,11 +116,12 @@ const stopLoss = false;
 
 const onlyGain = true;          // every 5 minute interval up to threshold must be a gain
 const increasingGain = false;   // every 5 minute interval up to threshold must be greater than previous
+const decreasingGain = false;
 const steadyGain = false;        // set to false or a number which is the fraction each gain must be within compared to last one
-const requiredUpFraction = params.upFraction;    // works well at 0.05 or 0.06
+const slightDrop = false; 
 
-let trends = 0;
-let reverses = 0;
+let trendDays = 0;
+let reverseDays = 0;
 
 dates.forEach((date) => {
     runDay(date, numSymsToUse);
@@ -129,8 +132,20 @@ console.log("up days: " + upDays);
 console.log("down days: " + downDays);
 // console.log(allFractions);
 console.log(arrAve(allFractions), Math.max(...allFractions), Math.min(...allFractions));
-console.log("trends: " + trends);
-console.log("reverses: " + reverses);
+
+for (let i = 1; i < allFractions.length; i++) {
+    const thisFraction = allFractions[i];
+    const prevFraction = allFractions[i - 1];
+    if (thisFraction * prevFraction > 0) {
+        trendDays += 1;
+    }
+    if (thisFraction * prevFraction < 0) {
+        reverseDays += 1;
+    }
+}
+
+console.log("trend days: " + trendDays);
+console.log("reverse days: " + reverseDays);
 // end main
 
 
@@ -198,7 +213,8 @@ function runDay(dateToRun, useNum) {
             const close = closeBar.c;
             const thresholdPrice = thresholdBar.c;
             const diffFraction = (thresholdPrice - open) / open;
-            if (diffFraction > requiredUpFraction) {
+            // if (diffFraction > requiredUpFraction) {
+            if (diffFraction > requiredUpFraction && diffFraction < maxUpFraction) {
             // if (diffFraction < 0) {     // use smallest instead
 
                 // model EXP
@@ -252,6 +268,18 @@ function runDay(dateToRun, useNum) {
                         lastGain = thisGain;
                     }
                 }
+                if (decreasingGain) {
+                    let lastGain = symData[0].c - symData[0].o;
+                    for (let j = 1; j < thresholdIdx; j++) {
+                        const lastBar = symData[j - 1];
+                        const thisBar = symData[j];
+                        const thisGain = thisBar.c - lastBar.c;
+                        if (thisGain > lastGain) {
+                            checksPassed = false;
+                        }
+                        lastGain = thisGain;
+                    }
+                }
                 if (steadyGain) {
                     let lastGain = symData[0].c - symData[0].o;
                     for (let j = 1; j < thresholdIdx; j++) {
@@ -264,7 +292,20 @@ function runDay(dateToRun, useNum) {
                         lastGain = thisGain;
                     }
                 }
-
+                if (slightDrop) {
+                    for (let j = 1; j < thresholdIdx - 1; j++) {
+                        const prevBar = symData[j - 1];
+                        const thisBar = symData[j];
+                        if (thisBar.c < prevBar.c) {
+                            checksPassed = false;
+                        }
+                    }
+                    const lastBar = symData[thresholdIdx];
+                    const penBar = symData[thresholdIdx - 1];
+                    if (lastBar.c > 0.99 * penBar.c) {
+                        checksPassed = false;
+                    }
+                }
 
                 if (checksPassed) {
                     if (!useNum) {
@@ -309,19 +350,19 @@ function runDay(dateToRun, useNum) {
                 if (close > thresholdPrice) {
                     upFractions.push((close - thresholdPrice) / thresholdPrice);
                     upSyms.push(sym);
-                    trends += 1;
+                    // trends += 1;
                 }
                 if (close < thresholdPrice) {
                     downFractions.push((close - thresholdPrice) / thresholdPrice);
                     downSyms.push(sym);
-                    reverses += 1;
+                    // reverses += 1;
                 }
             } else if (diffFraction < 0) {
                 if (close > thresholdPrice) {
-                    reverses += 1;
+                    // reverses += 1;
                 }
                 if (close < thresholdPrice) {
-                    trends += 1;
+                    // trends += 1;
                 }
             }
         }
@@ -337,19 +378,24 @@ function runDay(dateToRun, useNum) {
 
     
     if (!modelSym || modelUp) {
-        allFractions.push(useFractions.length > 0 ? arrAve(useFractions) : 0);
-        if (useFractions.length > 0) {
-            amt *= (1 + arrAve(useFractions));
+        const todayFraction = arrAve(useFractions);
+        let useToday = true;
+        // if (allFractions.length > 1 && allFractions[allFractions.length - 1] > 0) {
+        //     useToday = false;
+        // }
+        allFractions.push(useFractions.length > 0 ? todayFraction : 0);
+        if (useToday && useFractions.length > 0) {
+            amt *= (1 + todayFraction);
         }
-        if (arrAve(useFractions) > 0) {
+        if (useToday && todayFraction > 0) {
             upDays += 1;
         }
-        if (arrAve(useFractions) < 0) {
+        if (useToday && todayFraction < 0) {
             downDays += 1;
         }
     }
     // console.log(amt, useFractions.length);
-    console.log(amt, candidates.map(ele => ele.sym));
+    // console.log(amt, candidates.map(ele => ele.sym));
     // console.log(amt, candidates.map((ele, i) => {
     //     return {
     //         sym: ele.sym,
@@ -358,7 +404,7 @@ function runDay(dateToRun, useNum) {
     //         close: ele.close,
     //     }
     // }));
-    // console.log(amt);
+    console.log(amt);
 }
 
 function eastern930Timestamp(dateStr) {
