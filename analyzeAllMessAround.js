@@ -4,12 +4,38 @@ const { params } = require("./buyParams");
 
 const dates = [
     "2025-03-14",
+    "2025-04-07",
+    "2025-04-08",
+    "2025-04-09",
+    "2025-04-10",
+    "2025-04-11",
+    "2025-04-14",
+    "2025-04-15",
+    "2025-04-16",
+    "2025-04-17",
+    "2025-04-21",
+    "2025-04-22",
+    "2025-04-23",
+    "2025-04-24",
+    "2025-04-28",
+    "2025-04-29",
+    "2025-04-30",
+    "2025-05-01",
+    "2025-05-02",
+    "2025-05-06",
+    "2025-05-07",
+    "2025-05-08",
+    "2025-05-09",
+    "2025-05-12",
+    "2025-05-13",
+    "2025-05-14",
+    "2025-05-15",
+    "2025-05-16",
     "2025-05-19",
     "2025-05-20",
     "2025-05-21",
     "2025-05-22",
     "2025-05-23",
-    "2025-05-26",
     "2025-05-27",
     "2025-05-28",
     "2025-05-29",
@@ -27,7 +53,6 @@ const dates = [
     "2025-06-16",
     "2025-06-17",
     "2025-06-18",
-    "2025-06-19",
     "2025-06-20",
     "2025-06-23",
     "2025-06-24",
@@ -101,20 +126,20 @@ const allFractions = [];
 let upDays = 0;
 let downDays = 0;
 
-const numSymsToUse = params.numSymsToUse;
+const numSymsToUse = 20;
 const modelSym = false;
-const thresholdMins = 25;
-const requiredUpFraction = 0.05;    // works well at 0.05 or 0.06
-const maxUpFraction = 0.2;
+const thresholdMins = 210;
+const requiredUpFraction = -1;    // works well at 0.05 or 0.06
+const maxUpFraction = -0.2;
 
-const minVol = 10000;
-const minPrice = 5;
+const minVol = 100;
+const minPrice = 0;
 
 const nextBarOffset = 1;
-const takeProfit = 0.2;
+const takeProfit = false;
 const stopLoss = false;
 
-const onlyGain = true;          // every 5 minute interval up to threshold must be a gain
+const onlyGain = false;          // every 5 minute interval up to threshold must be a gain
 const increasingGain = false;   // every 5 minute interval up to threshold must be greater than previous
 const decreasingGain = false;
 const steadyGain = false;        // set to false or a number which is the fraction each gain must be within compared to last one
@@ -310,8 +335,8 @@ function runDay(dateToRun, useNum) {
                 if (checksPassed) {
                     if (!useNum) {
                         // ****** use all positives *****
-                        if (diffFraction > 0) {
-                        // if (diffFraction < 0) {     // use smallest instead
+                        // if (diffFraction > 0) {
+                        if (diffFraction < 0) {     // use smallest instead
                             candidates.push({
                                 sym: sym,
                                 diffFraction: diffFraction,
@@ -332,8 +357,8 @@ function runDay(dateToRun, useNum) {
                                 // close: symData[Math.floor(symData.length * (0.25))].c
                             });
                             candidates.sort((a, b) => {
-                                if (a.diffFraction > b.diffFraction) {
-                                // if (a.diffFraction < b.diffFraction) {      // use smallest instead
+                                // if (a.diffFraction > b.diffFraction) {
+                                if (a.diffFraction < b.diffFraction) {      // use smallest instead
                                     return 1;
                                 } else {
                                     return -1;
@@ -379,18 +404,20 @@ function runDay(dateToRun, useNum) {
     
     if (!modelSym || modelUp) {
         const todayFraction = arrAve(useFractions);
-        let useToday = true;
-        // if (allFractions.length > 1 && allFractions[allFractions.length - 1] > 0) {
-        //     useToday = false;
-        // }
         allFractions.push(useFractions.length > 0 ? todayFraction : 0);
-        if (useToday && useFractions.length > 0) {
+        const numUsed = useFractions.length;
+        if (useFractions.length > 0) {
             amt *= (1 + todayFraction);
+
+            // const tradeAmt = amt * (numUsed / numSymsToUse);
+            // const spareAmt = amt - tradeAmt;
+            // amt = spareAmt + ((1 + todayFraction) * tradeAmt);
+
         }
-        if (useToday && todayFraction > 0) {
+        if (todayFraction > 0) {
             upDays += 1;
         }
-        if (useToday && todayFraction < 0) {
+        if (todayFraction < 0) {
             downDays += 1;
         }
     }
