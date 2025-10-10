@@ -128,6 +128,8 @@ const downFractions = [];
 
 const tradeFractions = [];
 
+const todayIdxs = [];
+
 let amt = 100;
 const amts = [amt];
 
@@ -163,6 +165,13 @@ console.log("up days: " + upDays);
 console.log("down days: " + downDays);
 console.log("ave trades per day: " + tradeFractions.length / dates.length);
 console.log("average trade: " + arrAve(tradeFractions));
+todayIdxs.forEach((n) => {
+  console.log(n);
+});
+console.log("*******");
+tradeFractions.forEach((n) => {
+  console.log(n);
+});
 
 
 
@@ -212,6 +221,7 @@ function runDay(dateToRun) {
     let shortsToday = 0;
     let nextIdxToShort = 0;
     let symToday = "";
+    let idxToday = "";
     for (let i = 1; i < 78 - tradeLength; i++) {
         let symToTrade = false;
         let biggestIncrease = 0;
@@ -221,7 +231,7 @@ function runDay(dateToRun) {
             const thisPrice = data[sym][i].c;
             const nextPrice = data[sym][i + 1].c;
 
-            if (thisPrice < 0.95 * prevPrice && !tradedToday) {
+            if (thisPrice < 0.9 * prevPrice && !tradedToday) {
             // if (thisPrice < 0.95 * prevPrice && i > nextIdxToShort) {
                 if (thisPrice / prevPrice > biggestIncrease) {
                     biggestIncrease = thisPrice / prevPrice;
@@ -258,6 +268,8 @@ function runDay(dateToRun) {
             nextIdxToShort = i + tradeLength;
             tradedToday = true;
             symToday = symToTrade;
+            idxToday = i;
+            todayIdxs.push(i);
         }
     }
     // console.log(amt, shortsToday);
@@ -265,7 +277,7 @@ function runDay(dateToRun) {
     // if (shortsToday === 0) {
     //   console.log(dateToRun);
     // }
-    console.log(symToday);
+    console.log(symToday, idxToday);
     amts.push(amt);
 }
 
