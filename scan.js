@@ -33,9 +33,16 @@ fetchCurrentMarketSnapshot().then((snapshot) => {
 function determineAlert(oldTickerObj, newTickerObj) {
     const oldPrice = oldTickerObj.lastTrade.p;
     const newPrice = newTickerObj.lastTrade.p;
-    if (newPrice < 0.9 * oldPrice) {
+    if (newPrice < 0.92 * oldPrice) {
+        const changePercent = 100.0 * (oldPrice - newPrice) / oldPrice;
         return {
-            message: `${oldTickerObj.ticker} fallen by over 10%. Recommend short ${oldTickerObj.ticker} until end of day`
+            message: `${oldTickerObj.ticker} fallen by ${changePercent}%. Recommend SHORT -- ${oldTickerObj.ticker} -- until end of day`
+        };
+    }
+    if (newPrice > 1.05 * oldPrice) {
+        const changePercent = 100.0 * (newPrice - oldPrice) / oldPrice;
+        return {
+            message: `${oldTickerObj.ticker} risen by ${changePercent}%. Recommend SHORT -- ${oldTickerObj.ticker} -- until end of day`
         };
     }
     return false;
