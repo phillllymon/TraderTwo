@@ -3,6 +3,11 @@ const fs = require("fs");
 const { params } = require("./buyParams");
 
 const dates = [
+    "2025-02-24",
+    "2025-02-25",
+    "2025-02-26",
+    "2025-02-27",
+    "2025-02-28",
     "2025-03-03",
     "2025-03-04",
     "2025-03-05",
@@ -154,6 +159,9 @@ const allFractions = [];
 let upDays = 0;
 let downDays = 0;
 
+let upAfterMid = 0;
+let downAfterMid = 0;
+
 const numSymsToUse = params.numSymsToUse;
 const modelSym = false;
 const thresholdMins = params.thresholdMins;
@@ -184,6 +192,8 @@ console.log("down days: " + downDays);
 console.log(arrAve(allFractions), Math.max(...allFractions), Math.min(...allFractions));
 console.log("trends: " + trends);
 console.log("reverses: " + reverses);
+console.log("up after mid: " + upAfterMid);
+console.log("down after mid: " + downAfterMid);
 // end main
 
 
@@ -253,14 +263,6 @@ function runDay(dateToRun, useNum) {
             const diffFraction = (thresholdPrice - open) / open;
             if (diffFraction > requiredUpFraction) {
             // if (diffFraction < 0) {     // use smallest instead
-
-                // model EXP
-                if (sym === modelSym) {
-                    if (diffFraction > 0) {
-                        modelUp = true;
-                    }
-                }
-                // END model EXP
                 
                 let closeToUse = false;
                 if (takeProfit) {
@@ -320,6 +322,7 @@ function runDay(dateToRun, useNum) {
 
 
                 if (checksPassed) {
+
                     if (!useNum) {
                         // ****** use all positives *****
                         if (diffFraction > 0) {
@@ -384,6 +387,29 @@ function runDay(dateToRun, useNum) {
     const useFractions = [];
     candidates.forEach((candidateObj) => {
         useFractions.push((candidateObj.close - candidateObj.thresholdPrice) / candidateObj.thresholdPrice);
+
+        // for data guessing
+        const sym = candidateObj.sym;
+        const symData = allData[sym];
+        const checkFraction = 0.75;
+        const checkIdx = Math.floor(checkFraction * symData.length);
+        let max = 0;
+        for (let j = 0; j < checkIdx; j++) {
+            if (symData[j].c > max) {
+                max = symData[j].c;
+            }
+        }
+        const checkPrice = symData[checkIdx].c;
+        if (checkPrice > 0.95 * max) {
+            if (candidateObj.close > checkPrice) {
+                upAfterMid += 1;
+            }
+            if (candidateObj.close < checkPrice) {
+                downAfterMid += 1;
+            }
+        }
+        // end data guessing
+
     });
     // console.log(candidates.map(ele => ele.sym));
     // console.log(dateToRun, arrAve(useFractions));
@@ -393,6 +419,18 @@ function runDay(dateToRun, useNum) {
         allFractions.push(useFractions.length > 0 ? arrAve(useFractions) : 0);
         if (useFractions.length > 0) {
             amt *= (1 + arrAve(useFractions));
+            // const amts = [];
+            // for (let j = 0; j < 5; j++) {
+            //     if (useFractions[j]) {
+            //         amts.push((amt / 5) * (1 + useFractions[j]));
+            //     } else {
+            //         amts.push(amt / 5);
+            //     }
+            // }
+            // amt = 0;
+            // amts.forEach((n) => {
+            //     amt += n;
+            // });
         }
         if (arrAve(useFractions) > 0) {
             upDays += 1;
