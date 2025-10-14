@@ -1,4 +1,8 @@
+const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("./util");
 const { CREDS } = require("./CREDS");
+const fs = require("fs");
+
+const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
 const minutesPerInterval = 5;
 
@@ -8,13 +12,14 @@ fetchCurrentMarketSnapshot().then((snapshot) => {
     snapshot.tickers.forEach((tickerObj) => {
         lastPrices[tickerObj.ticker] = tickerObj;
     });
+    console.log(`beginning ${new Date().toString()}`);
     setInterval(() => {
-        console.log(`${new Date().toISOString()} - querying.......`);
+        console.log(`${new Date().toString()} - querying.......`);
         fetchCurrentMarketSnapshot().then((newSnapshot) => {
             const newPrices = {};
             newSnapshot.tickers.forEach((tickerObj) => {
                 if (lastPrices[tickerObj.ticker]) {
-                    const alert = determineAlert(lastPrices[tickerObj], tickerObj);
+                    const alert = determineAlert(lastPrices[tickerObj.ticker], tickerObj);
                     if (alert) {
                         console.log("************* ALERT *************");
                         console.log(alert.message);
@@ -23,27 +28,37 @@ fetchCurrentMarketSnapshot().then((snapshot) => {
                 newPrices[tickerObj.ticker] = tickerObj;
             });
             lastPrices = newPrices;
+            console.log("");
+            console.log("");
+            console.log("nothing more to report");
+            console.log("");
+            console.log("");
         });
     }, minutesPerInterval * 60000);
 
 
-    console.log(lastPrices["LUV"]);
+    console.log("scanning...");
 });
 
 function determineAlert(oldTickerObj, newTickerObj) {
-    const oldPrice = oldTickerObj.lastTrade.p;
-    const newPrice = newTickerObj.lastTrade.p;
-    if (newPrice < 0.92 * oldPrice) {
-        const changePercent = 100.0 * (oldPrice - newPrice) / oldPrice;
-        return {
-            message: `${oldTickerObj.ticker} fallen by ${changePercent}%. Recommend SHORT -- ${oldTickerObj.ticker} -- until end of day`
-        };
+    if (allSymsData[oldTickerObj.ticker] && allSymsData[oldTickerObj.ticker].shortable) {
+        return false;
     }
-    if (newPrice > 1.05 * oldPrice) {
-        const changePercent = 100.0 * (newPrice - oldPrice) / oldPrice;
-        return {
-            message: `${oldTickerObj.ticker} risen by ${changePercent}%. Recommend SHORT -- ${oldTickerObj.ticker} -- until end of day`
-        };
+    if (oldTickerObj.min && oldTickerObj.min.v > 1000 && oldTickerObj.min.c > 5) {
+        const oldPrice = oldTickerObj.lastTrade.p;
+        const newPrice = newTickerObj.lastTrade.p;
+        if (newPrice < 0.92 * oldPrice) {
+            const changePercent = 100.0 * (oldPrice - newPrice) / oldPrice;
+            return {
+                message: `${oldTickerObj.ticker} fallen by ${changePercent}%. Recommend SHORT -- ${oldTickerObj.ticker} -- until end of day`
+            };
+        }
+        if (newPrice > 1.05 * oldPrice) {
+            const changePercent = 100.0 * (newPrice - oldPrice) / oldPrice;
+            return {
+                message: `${oldTickerObj.ticker} risen by ${changePercent}%. Recommend SHORT -- ${oldTickerObj.ticker} -- until end of day`
+            };
+        }
     }
     return false;
 }

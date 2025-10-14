@@ -139,7 +139,11 @@ const dates = [
   "2025-10-03",
   "2025-10-06",
   "2025-10-07",
-  "2025-10-08"
+  "2025-10-08",
+  "2025-10-09",
+  "2025-10-10",
+  "2025-10-13",
+  "2025-10-14"
 ];
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
@@ -233,8 +237,8 @@ function runDay(dateToRun) {
 
 
 
-        if (data[sym].length === 79 && data[sym][0].c > 5 && data[sym][0].v > 10000) {
-        // if (data[sym].length === 79 && data[sym][0].c > 5 && allSymsData[sym] && allSymsData[sym].shortable) {
+        // if (data[sym].length === 79 && data[sym][0].c > 5 && data[sym][0].v > 10000 && (!allSymsData[sym] || !allSymsData[sym].shortable)) {
+        if (data[sym].length === 79 && data[sym][0].c > 5 && allSymsData[sym] && allSymsData[sym].shortable) {
 
 
 
@@ -248,7 +252,7 @@ function runDay(dateToRun) {
     let nextIdxToShort = 0;
     let symToday = "";
     let idxToday = "";
-    for (let i = 1; i < 78 - tradeLength; i++) {
+    for (let i = 1; i < 78; i++) {
         let symToTrade = false;
         let biggestIncrease = 0;
 
@@ -258,45 +262,42 @@ function runDay(dateToRun) {
             const nextPrice = data[sym][i + 1].c;
 
             // ** sharp decrease **
-            // if (thisPrice < 0.92 * prevPrice && !tradedToday) {
-            //     if (prevPrice / thisPrice > biggestIncrease) {
-            //     // if (thisPrice / prevPrice > biggestIncrease) {
-            //         biggestIncrease = thisPrice / prevPrice;
-            //         symToTrade = sym;
-            //     }
-            // }
+            if (thisPrice < 0.92 * prevPrice && !tradedToday) {
+                if (prevPrice / thisPrice > biggestIncrease) {
+                // if (thisPrice / prevPrice > biggestIncrease) {
+                    biggestIncrease = thisPrice / prevPrice;
+                    symToTrade = sym;
+                }
+            }
 
             // ** sharp increase **
-            if (thisPrice > 1.05 * prevPrice && !tradedToday) {
-              // if (prevPrice / thisPrice > biggestIncrease) {
-              if (thisPrice / prevPrice > biggestIncrease) {
-                  biggestIncrease = thisPrice / prevPrice;
-                  symToTrade = sym;
-              }
-          }
+            // if (thisPrice > 1.05 * prevPrice && !tradedToday) {
+            //   // if (prevPrice / thisPrice > biggestIncrease) {
+            //   if (thisPrice / prevPrice > biggestIncrease) {
+            //       biggestIncrease = thisPrice / prevPrice;
+            //       symToTrade = sym;
+            //   }
+            // }
         });
         if (symToTrade) {
 
             shortsToday += 1;
             const sellPrice = data[symToTrade][i + 1].c;
-            // const nextPrice = data[symToTrade][i + tradeLength].c;
             const buyPrice = data[symToTrade][data[symToTrade].length - 1].c;
 
             // ** short calc **
-            // const shortRatio = sellPrice / buyPrice;
             const shortRatio = (sellPrice - buyPrice) / buyPrice;
             const revenue = amt / 3;
-
             const cost = revenue * (buyPrice / sellPrice) * 0.999;
             amt = amt + revenue - cost;
-
-            // const reserveAmt = amt - tradeAmt;
-            // amt = reserveAmt + (0.999 * shortRatio * tradeAmt);
             tradeFractions.push(shortRatio);
 
-            // ** buy instead **
+            // // ** buy instead **
+            // const thisPrice = data[symToTrade][i + 1].c;
+            // const nextPrice = data[symToTrade][data[symToTrade].length - 1].c;
             // amt *= (nextPrice / thisPrice);
             // amt *= 0.999;
+            // tradeFractions.push(nextPrice / thisPrice);
 
             nextIdxToShort = i + tradeLength;
             tradedToday = true;
