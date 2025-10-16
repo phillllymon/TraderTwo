@@ -151,6 +151,8 @@ const dates = [
     "2025-10-14"
 ];
 
+const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
+
 // main
 let amt = 100;
 console.log(amt);
@@ -286,6 +288,7 @@ function runDay(dateToRun, useNum) {
                 }
 
                 let checksPassed = true;
+                
                 if (onlyGain) {
                     for (let j = 1; j < thresholdIdx; j++) {
                         const lastBar = symData[j - 1];
@@ -336,12 +339,12 @@ function runDay(dateToRun, useNum) {
                         }
                     } else {
                         // ***** use set number *****
+                        // if (candidates.length === 0 || diffFraction > candidates[0].diffFraction && (!allSymsData[sym] || !allSymsData[sym].shortable)) {
                         if (candidates.length === 0 || diffFraction > candidates[0].diffFraction) {
-                        // if (candidates.length === 0 || diffFraction < candidates[0].diffFraction) {     // use smallest instead
                             candidates.push({
                                 sym: sym,
                                 diffFraction: diffFraction,
-                                // thresholdPrice: thresholdPrice,
+                                actualThresholdPrice: thresholdPrice,
                                 thresholdPrice: nextBar.c,
                                 close: closeToUse
                                 // close: symData[Math.floor(symData.length * (0.25))].c
@@ -391,7 +394,7 @@ function runDay(dateToRun, useNum) {
         // for data guessing
         const sym = candidateObj.sym;
         const symData = allData[sym];
-        const checkFraction = 0.75;
+        const checkFraction = 0.9;
         const checkIdx = Math.floor(checkFraction * symData.length);
         let max = 0;
         for (let j = 0; j < checkIdx; j++) {
@@ -400,6 +403,7 @@ function runDay(dateToRun, useNum) {
             }
         }
         const checkPrice = symData[checkIdx].c;
+        // if (candidateObj.thresholdPrice > candidateObj.actualThresholdPrice) {
         if (checkPrice > 0.95 * max) {
             if (candidateObj.close > checkPrice) {
                 upAfterMid += 1;

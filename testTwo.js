@@ -1,193 +1,149 @@
 const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("./util");
 const fs = require("fs");
 const { params } = require("./buyParams");
+const { datesToUse } = require("./datesToUse");
 
-const dates = [
-    "2025-03-14",
-    "2025-04-07",
-    "2025-04-08",
-    "2025-04-09",
-    "2025-04-10",
-    "2025-04-11",
-    "2025-04-14",
-    "2025-04-15",
-    "2025-04-16",
-    "2025-04-17",
-    "2025-04-21",
-    "2025-04-22",
-    "2025-04-23",
-    "2025-04-24",
-    "2025-04-28",
-    "2025-04-29",
-    "2025-04-30",
-    "2025-05-01",
-    "2025-05-02",
-    "2025-05-06",
-    "2025-05-07",
-    "2025-05-08",
-    "2025-05-09",
-    "2025-05-12",
-    "2025-05-13",
-    "2025-05-14",
-    "2025-05-15",
-    "2025-05-16",
-    "2025-05-19",
-    "2025-05-20",
-    "2025-05-21",
-    "2025-05-22",
-    "2025-05-23",
-    "2025-05-27",
-    "2025-05-28",
-    "2025-05-29",
-    "2025-05-30",
-    "2025-06-02",
-    "2025-06-03",
-    "2025-06-04",
-    "2025-06-05",
-    "2025-06-06",
-    "2025-06-09",
-    "2025-06-10",
-    "2025-06-11",
-    "2025-06-12",
-    "2025-06-13",
-    "2025-06-16",
-    "2025-06-17",
-    "2025-06-18",
-    "2025-06-20",
-    "2025-06-23",
-    "2025-06-24",
-    "2025-06-25",
-    "2025-06-26",
-    "2025-06-27",
-    "2025-06-30",
-    "2025-07-01",
-    "2025-07-02",
-    "2025-07-07",
-    "2025-07-08",
-    "2025-07-09",
-    "2025-07-10",
-    "2025-07-11",
-    "2025-07-14",
-    "2025-07-15",
-    "2025-07-16",
-    "2025-07-17",
-    "2025-07-18",
-    "2025-07-28",
-    "2025-07-29",
-    "2025-07-30",
-    "2025-07-31",
-    "2025-08-01",
-    "2025-08-04",
-    "2025-08-05",
-    "2025-08-06",
-    "2025-08-07",
-    "2025-08-08",
-    "2025-08-11",
-    "2025-08-12",
-    "2025-08-13",
-    "2025-08-14",
-    "2025-08-15",
-    "2025-08-18",
-    "2025-08-19",
-    "2025-08-20",
-    "2025-08-21",
-    "2025-08-22",
-    "2025-08-25",
-    "2025-09-08",
-    "2025-09-09",
-    "2025-09-10",
-    "2025-09-11",
-    "2025-09-15",
-    "2025-09-16",
-    "2025-09-17",
-    "2025-09-18",
-    "2025-09-19",
-    "2025-09-22",
-    "2025-09-23",
-    "2025-09-24",
-    "2025-09-25",
-    "2025-09-26",
-    "2025-09-29",
-    "2025-09-30",
-    "2025-10-01",
-    "2025-10-02",
-    "2025-10-03",
-    "2025-10-06",
-    "2025-10-07",
-    "2025-10-08"
-];
+// const dates = datesToUse.slice(25, 50);
+const dates = datesToUse;
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
 let rightGuesses = 0;
 let wrongGuesses = 0;
 
+let amt = 100;
+const amts = [amt];
+
+let ups = 0;
+let downs = 0;
+
+const tradePeriodLength = 8;
 const ratios = [];
+const allRatios = [];
 
 dates.forEach((date, i) => {
     console.log(`running day ${i} / ${dates.length}`);
     runDay(date);
 });
 
-console.log("right: " + rightGuesses);
-console.log("wrong: " + wrongGuesses);
+amts.forEach((n) => {
+    console.log(n);
+});
+
+console.log("total days: " + dates.length);
+console.log("ups: " + ups);
+console.log("downs: " + downs);
+// console.log("right: " + rightGuesses);
+// console.log("wrong: " + wrongGuesses);
 console.log("ave ratio: " + arrAve(ratios));
 console.log(Math.min(...ratios), Math.max(...ratios));
+console.log("average trade ratio: " + arrAve(allRatios));
+
 
 
 function runDay(dateToRun) {
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
+    const allSyms = Object.keys(data);
 
-    Object.keys(data).forEach((sym) => {
-        if (data[sym].length === 79 && data[sym][0].c > 5 && data[sym][0].v > 100000) {
-        // if (data[sym].length === 79 && data[sym][0].c > 5 && allSymsData[sym] && allSymsData[sym].shortable) {
+    const dayRatios = [];
+    let cumulativeDayRatio = 1;
+    let own = false;
+    let boughtPrice = 0;
+    let boughtIdx = 0;
+    const targetFraction = 1.1;
+    const maxHoldIntervals = 0;
+    for (let i = 3; i < 79; i++) {
+        if (own) {
+            // if (data[own][i].c < targetFraction * boughtPrice || i === 78 || i > boughtIdx + maxHoldIntervals) {
+            if (data[own][i].c > targetFraction * boughtPrice || i === 78 || i > boughtIdx + maxHoldIntervals) {
+                
+                // buy
+                dayRatios.push(data[own][i].c / boughtPrice);
+                allRatios.push(data[own][i].c / boughtPrice);
+                cumulativeDayRatio *= data[own][i].c / boughtPrice;
+                amt *= data[own][i].c / boughtPrice;
+                amt *= 0.999;
+                
+                // short instead
+                // const revenue = amt / 3;
+                // const ratio = data[own][i].c / boughtPrice;
+                // const cost = revenue * ratio;
+                // cumulativeDayRatio *= (1 / ratio);
+                // dayRatios.push(1 / ratio);
+                // amt = amt + revenue - cost;
+                
+                
+                own = false;
+            }
+        } else {
+            let symToBuy = false;
+            let biggestDrop = 0;
+            allSyms.forEach((sym) => {
+                if (data[sym].length === 79 && data[sym][0].c > 5 && data[sym][0].v > 1000) {
+                    
+                    const priceA = data[sym][i - 3].c;
+                    const priceB = data[sym][i - 2].c;
+                    const priceC = data[sym][i - 1].c;
+                    const priceD = data[sym][i].c;
 
-            // guessing
-            const dayData = data[sym];
-            
-            if (
-                true
-                // && openPrice > 5 
-                && dayData[0].v > 1000 
-                && dayData.length > 30
-            ) {
-                const reactionTimeOffset = 1;
-                let dayDone = false;
-                let absRatio = 0;
-                let middle = false;
-                let close = false;
-                dayData.forEach((bar, i) => {
-                    if (i > 0 && i < dayData.length - reactionTimeOffset) {
-                        // if ((bar.c > 1.1 * dayData[i - 1].c || bar.c < 0.92 * dayData[i - 1].c) && !dayDone) {
-                        if (bar.c < 0.9 * dayData[i - 1].c && !dayDone) {
-                            dayDone = true;
-                            // NOTE: we're guessing price will go DOWN
-                            const middlePrice = dayData[i + reactionTimeOffset].c;
-                            let closePrice = dayData[dayData.length - 1].c;
-                            if (Math.max(...dayData.slice((i + reactionTimeOffset), dayData.length).map(ele => ele.c)) > 1.5 * middlePrice) {
-                                closePrice = 1.5 * middlePrice;
-                            }
-                            // const closePrice = dayData[i + reactionTimeOffset + 10].c;
-                            ratios.push(10000 * (1 - (closePrice / middlePrice)));
-                            // if (Math.max(bar.c, dayData[i - 1].c) / Math.min(bar.c, dayData[i - 1].c) > absRatio) {
-                            //     absRatio = Math.max(bar.c, dayData[i - 1].c) / Math.min(bar.c, dayData[i - 1].c);
-                            //     middle = middlePrice;
-                            //     close = closePrice;
-                            // }
+                    const volA = data[sym][i - 3].v;
+                    const volB = data[sym][i - 2].v;
+                    const volC = data[sym][i - 1].v;
+                    const volD = data[sym][i].v;
 
-                            if (closePrice < middlePrice) {
-                                rightGuesses += 1;
-                            }
-                            if (closePrice > middlePrice) {
-                                wrongGuesses += 1;
-                            }
-                            
+                    if (true
+                        // && priceD > priceC && priceC > priceB && priceB > priceA
+                        && priceD < 0.98 * priceC
+                        && priceD > 0.9 * priceC
+                        // && priceD > 0.99 * priceB
+                        // && volD < volC
+                        // && allSymsData[sym] && allSymsData[sym].shortable
+                        // && (!allSymsData[sym] || !allSymsData[sym].shortable)
+                        // && data[sym][0].c < 50
+                    ) {
+
+
+                    // if (true) {
+                    // if (data[sym][i].c < 0.95 * data[sym][i - 1].c) {
+                        // const thisDrop = Math.abs(data[sym][i - 1].c - data[sym][i].c);
+
+                        // const thisDrop = Math.abs(priceC - priceB);
+
+                        const factorD = (priceD - priceC) / priceD;
+                        const factorC = (priceC - priceB) / priceC;
+                        const factorB = (priceB - priceA) / priceB;
+
+
+                        // const thisDrop = 1 / Math.abs(factorD + factorC + factorB);
+                        const thisDrop = 1 / Math.abs(priceD - priceC);
+
+                        if (thisDrop > biggestDrop) {
+                            biggestDrop = thisDrop;
+                            symToBuy = sym;
                         }
                     }
-                });
+                }
+            });
+            if (symToBuy) {
+                own = symToBuy;
+                boughtPrice = data[own][i].c;
+                boughtIdx = i;
             }
         }
-    });
+    }
+
+    // console.log(dayRatios);
+    if (dayRatios.length > 0) {
+        if (arrAve(dayRatios) > 1) {
+            ups += 1;
+        }
+        if (arrAve(dayRatios) < 1) {
+            downs += 1;
+        }
+    }
+    console.log(dayRatios.length, arrAve(dayRatios), cumulativeDayRatio);
+    ratios.push(cumulativeDayRatio);
+    amts.push(amt);
 }
 
 function eastern930Timestamp(dateStr) {
