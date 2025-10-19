@@ -4,8 +4,8 @@ const fs = require("fs");
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 
 // fetches 5 minute data for the dates used for buy algo
-const startDate = "2025-02-25";
-const endDate = "2025-03-02";
+const startDate = "2025-10-18";
+const endDate = "2025-10-19";
 
 const numMinutes = 5;
 

@@ -21,3 +21,10 @@ function getEasternTimestamps(dateStr) {
 }
 
 module.exports = { fetchMinutelyOneDayOneSym };
+
+// TEMP MAIN
+// const dateToUse = "2025-10-15";
+// const symToUse = "GGLL";
+// fetchMinutelyOneDayOneSym("GGLL", "2025-10-15", 1).then((data) => {
+//     fs.writeFileSync(`./data/oneMinuteDaySamples/${symToUse}-${dateToUse}.txt`, JSON.stringify(data));
+// });

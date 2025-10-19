@@ -6,7 +6,18 @@ const { datesToUse } = require("./datesToUse");
 // const dates = datesToUse.slice(25, 50);
 const dates = datesToUse;
 
-const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
+const filesToUse = [
+    "allSyms",
+    "allSymsA",
+    "allSymsB",
+    "allSymsC",
+    "allSymsD",
+    "allSymsE",
+    "allSymsF",
+    "allSymsG"
+];
+const allSymsData = combineAllSymsFiles(filesToUse);
+// const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
 let rightGuesses = 0;
 let wrongGuesses = 0;
@@ -16,6 +27,17 @@ const amts = [amt];
 
 let ups = 0;
 let downs = 0;
+
+const resolves = {
+    a: 0,
+    b: 0,
+    c: 0,
+    buys: 0,
+    sells: 0,
+};
+
+const regularTradeRatios = [];
+const quickTradeRatios = [];
 
 const tradePeriodLength = 8;
 const ratios = [];
@@ -31,13 +53,16 @@ amts.forEach((n) => {
 });
 
 console.log("total days: " + dates.length);
-console.log("ups: " + ups);
-console.log("downs: " + downs);
-// console.log("right: " + rightGuesses);
-// console.log("wrong: " + wrongGuesses);
-console.log("ave ratio: " + arrAve(ratios));
+console.log("up days: " + ups);
+console.log("down days: " + downs);
+console.log("right: " + rightGuesses);
+console.log("wrong: " + wrongGuesses);
+console.log("ave day ratio: " + arrAve(ratios));
 console.log(Math.min(...ratios), Math.max(...ratios));
 console.log("average trade ratio: " + arrAve(allRatios));
+console.log(resolves);
+console.log("quick trade ratios: " + arrAve(quickTradeRatios));
+console.log("regular trade ratios: " + arrAve(regularTradeRatios));
 
 
 
@@ -50,18 +75,42 @@ function runDay(dateToRun) {
     let own = false;
     let boughtPrice = 0;
     let boughtIdx = 0;
-    const targetFraction = 1.1;
+    const targetFraction = 1.5;
+    const sellLimitFraction = 1.1;
     const maxHoldIntervals = 0;
-    for (let i = 3; i < 79; i++) {
+    let foundSym = false;
+    
+    for (let i = 3; i < 79; i += 1) {
         if (own) {
             // if (data[own][i].c < targetFraction * boughtPrice || i === 78 || i > boughtIdx + maxHoldIntervals) {
             if (data[own][i].c > targetFraction * boughtPrice || i === 78 || i > boughtIdx + maxHoldIntervals) {
+            // if (i === 78) {
+                if (data[own][i].c > targetFraction * boughtPrice) {
+                    resolves.a += 1;
+                }
+                if (i === 78) {
+                    resolves.b += 1;
+                }
+                if (i > boughtIdx + maxHoldIntervals) {
+                    resolves.c += 1;
+                }
                 
                 // buy
-                dayRatios.push(data[own][i].c / boughtPrice);
-                allRatios.push(data[own][i].c / boughtPrice);
-                cumulativeDayRatio *= data[own][i].c / boughtPrice;
-                amt *= data[own][i].c / boughtPrice;
+                const sellPrice = data[own][i].h > sellLimitFraction * boughtPrice ? sellLimitFraction * boughtPrice : data[own][i].c;
+                // const buyRatio = data[own][i].c / boughtPrice;
+                const buyRatio = sellPrice / boughtPrice;
+                if (buyRatio > 1) {
+                    rightGuesses += 1;
+                }
+                if (buyRatio < 1) {
+                    wrongGuesses += 1;
+                }
+                dayRatios.push(buyRatio);
+                allRatios.push(buyRatio);
+                regularTradeRatios.push(buyRatio);
+                cumulativeDayRatio *= buyRatio;
+                amt *= buyRatio;
+                resolves.sells += 1;
                 amt *= 0.999;
                 
                 // short instead
@@ -75,11 +124,13 @@ function runDay(dateToRun) {
                 
                 own = false;
             }
-        } else {
+        } 
+        // else {
+        if (!own) {
             let symToBuy = false;
             let biggestDrop = 0;
             allSyms.forEach((sym) => {
-                if (data[sym].length === 79 && data[sym][0].c > 5 && data[sym][0].v > 1000) {
+                if (data[sym].length === 79 && data[sym][0].c > 1 && data[sym][0].v > 10000 && i < 78) {
                     
                     const priceA = data[sym][i - 3].c;
                     const priceB = data[sym][i - 2].c;
@@ -94,12 +145,14 @@ function runDay(dateToRun) {
                     if (true
                         // && priceD > priceC && priceC > priceB && priceB > priceA
                         && priceD < 0.98 * priceC
-                        && priceD > 0.9 * priceC
+                        // && priceD > 0.95 * priceC
                         // && priceD > 0.99 * priceB
                         // && volD < volC
                         // && allSymsData[sym] && allSymsData[sym].shortable
-                        // && (!allSymsData[sym] || !allSymsData[sym].shortable)
-                        // && data[sym][0].c < 50
+                        && (!allSymsData[sym] || !allSymsData[sym].shortable)
+                        && data[sym][i].c < 2
+                        // && data[sym][i].v > 10000
+                        // && data[sym][0].v < 1000000
                     ) {
 
 
@@ -116,6 +169,7 @@ function runDay(dateToRun) {
 
                         // const thisDrop = 1 / Math.abs(factorD + factorC + factorB);
                         const thisDrop = 1 / Math.abs(priceD - priceC);
+                        // const thisDrop = 1 / (Math.abs(priceC - priceD) / priceD);
 
                         if (thisDrop > biggestDrop) {
                             biggestDrop = thisDrop;
@@ -125,9 +179,31 @@ function runDay(dateToRun) {
                 }
             });
             if (symToBuy) {
-                own = symToBuy;
-                boughtPrice = data[own][i].c;
-                boughtIdx = i;
+                let skip = false;
+                if (dayRatios.length > 5 && cumulativeDayRatio < 0.8) {
+                    // skip = true;
+                }
+                if (!skip) {
+                    // if (own) {
+                    //     const buyRatio = data[own][i].c / boughtPrice;
+                    //     if (buyRatio > 1) {
+                    //         rightGuesses += 1;
+                    //     }
+                    //     if (buyRatio < 1) {
+                    //         wrongGuesses += 1;
+                    //     }
+                    //     dayRatios.push(buyRatio);
+                    //     allRatios.push(buyRatio);
+                    //     quickTradeRatios.push(buyRatio);
+                    //     cumulativeDayRatio *= buyRatio;
+                    //     amt *= buyRatio;
+                    //     resolves.sells += 1;
+                    // }
+                    own = symToBuy;
+                    resolves.buys += 1;
+                    boughtPrice = data[own][i].c;
+                    boughtIdx = i;
+                }
             }
         }
     }
@@ -186,4 +262,24 @@ function eastern930Timestamp(dateStr) {
   
     // adjust to the target timezone instant
     return systemLocal930Ms + offset;
+}
+
+function combineAllSymsFiles(filesToUse) {
+    const symsObj = {};
+    for (let i = 0; i < filesToUse.length; i++) {
+        const arr = JSON.parse(fs.readFileSync(`./data/${filesToUse[0]}.txt`));
+        arr.forEach((entry) => {
+            if (!symsObj[entry.symbol]) {
+                symsObj[entry.symbol] = entry;
+            } else {
+                if (entry.shortable) {
+                    symsObj[entry.symbol].shortable = true;
+                }
+                if (entry.easy_to_borrow) {
+                    symsObj[entry.symbol].easy_to_borrow = true;
+                }
+            }
+        });
+    }
+    return symsObj;
 }
