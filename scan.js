@@ -17,10 +17,12 @@ fetchCurrentMarketSnapshot().then((snapshot) => {
         console.log(`${new Date().toString()} - querying.......`);
         fetchCurrentMarketSnapshot().then((newSnapshot) => {
             const newPrices = {};
+            let alertsPresent = false;
             newSnapshot.tickers.forEach((tickerObj) => {
                 if (lastPrices[tickerObj.ticker]) {
                     const alert = determineAlert(lastPrices[tickerObj.ticker], tickerObj);
                     if (alert) {
+                        alertsPresent = true;
                         console.log("************* ALERT *************");
                         console.log(alert.message);
                     }
@@ -28,11 +30,13 @@ fetchCurrentMarketSnapshot().then((snapshot) => {
                 newPrices[tickerObj.ticker] = tickerObj;
             });
             lastPrices = newPrices;
-            console.log("");
-            console.log("");
-            console.log("nothing more to report");
-            console.log("");
-            console.log("");
+            if (!alertsPresent) {
+                console.log("");
+                console.log("");
+                console.log("nothing to report");
+                console.log("");
+                console.log("");
+            }
         });
     }, minutesPerInterval * 60000);
 

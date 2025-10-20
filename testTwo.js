@@ -3,7 +3,8 @@ const fs = require("fs");
 const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 
-// const dates = datesToUse.slice(25, 50);
+// const dates = datesToUse.slice(75, 110);
+// const dates = datesToUse.slice(datesToUse.length - 25, datesToUse.length);
 const dates = datesToUse;
 
 const filesToUse = [
@@ -27,6 +28,9 @@ const amts = [amt];
 
 let ups = 0;
 let downs = 0;
+let takeProfits = 0;
+
+const scores = [];
 
 const resolves = {
     a: 0,
@@ -63,6 +67,14 @@ console.log("average trade ratio: " + arrAve(allRatios));
 console.log(resolves);
 console.log("quick trade ratios: " + arrAve(quickTradeRatios));
 console.log("regular trade ratios: " + arrAve(regularTradeRatios));
+console.log("take profits: " + takeProfits);
+// allRatios.forEach((n) => {
+//     console.log(n);
+// });
+// console.log("****************");
+// scores.forEach((n) => {
+//     console.log(n);
+// });
 
 
 
@@ -71,20 +83,22 @@ function runDay(dateToRun) {
     const allSyms = Object.keys(data);
 
     const dayRatios = [];
+    const daySyms = [];
     let cumulativeDayRatio = 1;
     let own = false;
     let boughtPrice = 0;
     let boughtIdx = 0;
-    const targetFraction = 1.5;
-    const sellLimitFraction = 1.1;
+    const targetFraction = 1.03;
+    const sellLimitFraction = 1.03;
+    // const sellLimitFraction = 20;
     const maxHoldIntervals = 0;
     let foundSym = false;
     
     for (let i = 3; i < 79; i += 1) {
         if (own) {
             // if (data[own][i].c < targetFraction * boughtPrice || i === 78 || i > boughtIdx + maxHoldIntervals) {
-            if (data[own][i].c > targetFraction * boughtPrice || i === 78 || i > boughtIdx + maxHoldIntervals) {
-            // if (i === 78) {
+            // if (data[own][i].c > targetFraction * boughtPrice || i === 78 || i > boughtIdx + maxHoldIntervals) {
+            if (i === 78 || i > boughtIdx + maxHoldIntervals) {
                 if (data[own][i].c > targetFraction * boughtPrice) {
                     resolves.a += 1;
                 }
@@ -97,8 +111,13 @@ function runDay(dateToRun) {
                 
                 // buy
                 const sellPrice = data[own][i].h > sellLimitFraction * boughtPrice ? sellLimitFraction * boughtPrice : data[own][i].c;
+                // const sellPrice = data[own][i].l < 0.95 * boughtPrice ? 0.94 * boughtPrice : data[own][i].c;
+                if (data[own][i].h > sellLimitFraction * boughtPrice) {
+                    takeProfits += 1;
+                }
                 // const buyRatio = data[own][i].c / boughtPrice;
-                const buyRatio = sellPrice / boughtPrice;
+                const spreadFactor = 1.0000;
+                const buyRatio = sellPrice / (spreadFactor * boughtPrice);
                 if (buyRatio > 1) {
                     rightGuesses += 1;
                 }
@@ -106,12 +125,13 @@ function runDay(dateToRun) {
                     wrongGuesses += 1;
                 }
                 dayRatios.push(buyRatio);
+                daySyms.push(own);
                 allRatios.push(buyRatio);
                 regularTradeRatios.push(buyRatio);
                 cumulativeDayRatio *= buyRatio;
                 amt *= buyRatio;
                 resolves.sells += 1;
-                amt *= 0.999;
+                // amt *= 0.999;
                 
                 // short instead
                 // const revenue = amt / 3;
@@ -129,30 +149,33 @@ function runDay(dateToRun) {
         if (!own) {
             let symToBuy = false;
             let biggestDrop = 0;
+            let score = 0;
             allSyms.forEach((sym) => {
-                if (data[sym].length === 79 && data[sym][0].c > 1 && data[sym][0].v > 10000 && i < 78) {
+                if (data[sym].length === 79 && data[sym][0].c > 1 && data[sym][i].v > 100000 && i < 78) {
                     
                     const priceA = data[sym][i - 3].c;
                     const priceB = data[sym][i - 2].c;
                     const priceC = data[sym][i - 1].c;
                     const priceD = data[sym][i].c;
+                    const priceZero = data[sym][0].c;
 
                     const volA = data[sym][i - 3].v;
                     const volB = data[sym][i - 2].v;
                     const volC = data[sym][i - 1].v;
                     const volD = data[sym][i].v;
 
+                    const sampleSym = "SPY";
+                    const sampleC = data[sampleSym][i].c;
+                    const sampleD = data[sampleSym][i - 1].c;
+                    const sampleZero = data[sampleSym][0].c;
+
+                    const dataSoFar = data[sym].slice(0, i + 1);
+
                     if (true
-                        // && priceD > priceC && priceC > priceB && priceB > priceA
-                        && priceD < 0.98 * priceC
-                        // && priceD > 0.95 * priceC
-                        // && priceD > 0.99 * priceB
-                        // && volD < volC
-                        // && allSymsData[sym] && allSymsData[sym].shortable
-                        && (!allSymsData[sym] || !allSymsData[sym].shortable)
+                        && priceD < 0.975 * priceC
                         && data[sym][i].c < 2
-                        // && data[sym][i].v > 10000
-                        // && data[sym][0].v < 1000000
+                        // && priceD < 0.90 * priceZero
+                        // && priceD < 0.8 * priceZero
                     ) {
 
 
@@ -170,6 +193,7 @@ function runDay(dateToRun) {
                         // const thisDrop = 1 / Math.abs(factorD + factorC + factorB);
                         const thisDrop = 1 / Math.abs(priceD - priceC);
                         // const thisDrop = 1 / (Math.abs(priceC - priceD) / priceD);
+                        score += 1;
 
                         if (thisDrop > biggestDrop) {
                             biggestDrop = thisDrop;
@@ -179,6 +203,7 @@ function runDay(dateToRun) {
                 }
             });
             if (symToBuy) {
+                scores.push(score);
                 let skip = false;
                 if (dayRatios.length > 5 && cumulativeDayRatio < 0.8) {
                     // skip = true;
