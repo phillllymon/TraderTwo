@@ -42,7 +42,7 @@ const startTime = new Date().getTime();
 fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
     Object.keys(data).forEach((sym) => {
         const thisData = data[sym];
-        if (thisData.length > 3) {
+        if (thisData.length > 4) {
             if (
                 true
                 && thisData[0].c > minPriceToUse
@@ -90,7 +90,8 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
                     if (candidates.length === 0 || diffFraction > candidates[0].diffFraction) {
                         candidates.push({
                             sym: sym,
-                            diffFraction: diffFraction
+                            diffFraction: diffFraction,
+                            thresholdPrice: thresholdPrice
                         });
                         candidates.sort((a, b) => {
                             if (a.diffFraction > b.diffFraction) {
@@ -99,7 +100,8 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
                                 return -1;
                             }
                         });
-                        while (candidates.length > numSymsToUse) {
+                        while (candidates.length > 10) {
+                        // while (candidates.length > numSymsToUse) {
                             candidates.shift();
                         }
                     }
@@ -110,6 +112,8 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
     });
 
     console.log(candidates.map(ele => ele.sym));
+    console.log(candidates.map(ele => ele.thresholdPrice));
+    console.log(candidates.map(ele => ele.diffFraction));
     const endTime = new Date().getTime();
     const elapsedTime = (endTime - startTime) / 60000;
     console.log(`time to run: ${elapsedTime} minutes`);
