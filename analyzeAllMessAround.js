@@ -2,98 +2,422 @@ const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("
 const fs = require("fs");
 const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
+const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 
-// const dates = datesToUse.slice(datesToUse.length - 12, datesToUse.length);
+// const dates = datesToUse.slice(datesToUse.length - 1, datesToUse.length);
 const dates = datesToUse;
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
+const cryptoEtfs = [
+    "IBIT",
+    "FBTC",
+    "GBTC",
+    "BTC",
+    "ARKB",
+    "BITB",
+    "BITO",
+    "BITX",
+    "ARKW",
+    "HODL",
+    "BITU",
+    "BTCI",
+    "MSTX",
+    "BTCO",
+    "BRRR",
+    "EZBC",
+    "BITQ",
+    "WGMI",
+    "STCE",
+    "BTCW",
+    "NCIQ",
+    "BITI",
+    "SPBC",
+    "MST",
+    "SBIT",
+    "RIOX",
+    "BITS",
+    "BTF",
+    "BETH",
+    "BITY",
+    "BITC",
+    "MNRS",
+    "BAGY",
+    "DEFI",
+    "BETE",
+    "SATO",
+    "BTFX",
+    "BMAX",
+    "BLKC",
+    "BTOP",
+    "BCOR",
+    "BITW"
+];
 
+// main
 let amt = 100;
 const amts = [amt];
 console.log(amt);
 const allFractions = [];
 
+let otherAmt = 100;
+
 let upDays = 0;
 let downDays = 0;
 
-let ups = 0;
-let downs = 0;
+let upAfterMid = 0;
+let downAfterMid = 0;
+
+const numSymsToUse = params.numSymsToUse;
+const modelSym = false;
+const thresholdMins = params.thresholdMins;
+
+const minVol = params.minVolumeToUse;
+// const minVol = 1000;
+const minPrice = params.minPriceToUse;
+// const minPrice = 2;
+
+const nextBarOffset = 2;
+const takeProfit = 0.15;
+const stopLoss = 0.15;
+
+const onlyGain = true;          // every 5 minute interval up to threshold must be a gain
+const increasingGain = false;   // every 5 minute interval up to threshold must be greater than previous
+const steadyGain = false;        // set to false or a number which is the fraction each gain must be within compared to last one
+const requiredUpFraction = params.upFraction;    // works well at 0.05 or 0.06
+
+let trends = 0;
+let reverses = 0;
 
 let right = 0;
 let wrong = 0;
 
-// working data variables
-let lastClosePrices = {};
+let lastSymData = {};
+let successNextDayUps = 0;
+let successNextDayDowns = 0;
+let failNextDayUps = 0;
+let failNextDayDowns = 0;
 
-
-// main
-dates.forEach((date, i) => {
-    // console.log(`${i} / ${dates.length}`);
-    runDay(date);
+dates.forEach((date) => {
+    runDay(date, numSymsToUse);
 });
 
-console.log("num up: " + ups);
-console.log("num down: " + downs);
+console.log("total days: " + dates.length);
+console.log("up days: " + upDays);
+console.log("down days: " + downDays);
+// console.log(allFractions);
+console.log(arrAve(allFractions), Math.max(...allFractions), Math.min(...allFractions));
+console.log("right: " + right);
+console.log("wrong: " + wrong);
+console.log("success next day up: " + successNextDayUps);
+console.log("success next day down: " + successNextDayDowns);
+console.log("fail next day up: " + failNextDayUps);
+console.log("fail next day down: " + failNextDayDowns);
 
+let goodRun = 0;
+let badRun = 0;
+for (let i = 12; i < amts.length; i++) {
+    if (amts[i] > amts[i - 12]) {
+        goodRun += 1;
+    }
+    if (amts[i] < amts[i - 12]) {
+        badRun += 1;
+    }
+}
+console.log("good runs: " + goodRun);
+console.log("bad runs: " + badRun);
 // end main
 
-function runDay(dateToRun) {
-    const midIdx = 2;
-    const theseClosePrices = {};
-    const todayTradeNums = [];
+
+function runDay(dateToRun, useNum) {
+    const allData = {};
+    const syms = [];
+    
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
+
+    // Object.keys(data).slice(1000, 1500).forEach((sym) => {
     Object.keys(data).forEach((sym) => {
         const thisData = data[sym];
-        if (lastClosePrices[sym] && thisData.length === 79) {
-            const openPrice = thisData[0].o;
-            if (openPrice > 1.3 * lastClosePrices[sym]) {
-                if (true
-                    // && allSymsData[sym] && allSymsData[sym].shortable
-                    && thisData[0].c > 5
-                    && thisData[0].v > 10000
-                ) {
-                    todayTradeNums.push({
-                        openPrice: openPrice,
-                        halfHourPrice: thisData[midIdx].c
-                    });
-    
-                    if (thisData[midIdx].c > openPrice) {
-                        ups += 1;
+        if (thisData.length > 3) {
+            if (
+                true
+                && thisData[0].o > minPrice
+                // && thisData[0].v > 1000
+                && thisData[0].v + thisData[1].v + thisData[2].v + thisData[3].v > minVol
+                // && thisData[0].c < 20 
+                // && thisData[0].v * thisData[0].c > 1000
+            ) {
+                allData[sym] = data[sym];
+                syms.push(sym);
+            }
+        }
+    });
+
+    const upFractions = [];
+    const downFractions = [];
+
+    const upSyms = [];
+    const downSyms = [];
+
+    const candidates = [];
+
+    let modelUp = false;
+
+    const newLastSymData = {};
+
+    syms.forEach((sym, i) => {
+        const symData = allData[sym];
+        newLastSymData[sym] = symData;
+
+        // ------- new option: look at timestamps and verify if there are 5 bars before 10am
+        const openingBellMs = eastern930Timestamp(dateToRun);
+        const thresholdTimeMs = openingBellMs + (thresholdMins * 60000);
+        let barCount = 0;
+        symData.forEach((bar) => {
+            if (bar.t < thresholdTimeMs) {
+                barCount += 1;
+            }
+        });
+        if (barCount > (thresholdMins / params.minutesPerInterval) - 1) {
+
+            let yesterdayPassed = true;
+            if (cryptoEtfs.includes(sym)) {
+                yesterdayPassed = false;
+            }
+            const cryptoWords = ["crypto", "btc", "bitcoin", "eth", "2x", "etf", "lever"];
+            if (allSymsData[sym]) {
+                cryptoWords.forEach((word) => {
+                    if (allSymsData[sym].name.toLowerCase().includes(word)) {
+                        yesterdayPassed = false;
                     }
-                    if (thisData[midIdx].c < openPrice) {
-                        downs += 1;
+                });
+            }
+            // if (lastSymData[sym]) {
+            //     // yesterdayPassed = false;
+            //     const yesterdayOpen = lastSymData[sym][0].o;
+            //     const yesterdayClose = lastSymData[sym][lastSymData[sym].length - 1].c;
+            //     if (yesterdayClose > 1.05 * yesterdayOpen) {
+            //         yesterdayPassed = false;
+            //     }
+            //     if (yesterdayClose < 0.95 * yesterdayOpen) {
+            //         yesterdayPassed = false;
+            //     }
+            // }
+
+            const thresholdIdx = barCount - 1;
+
+            // const nextBar = symData[Math.floor(symData.length / 4)];
+            const nextBar = symData[thresholdIdx + nextBarOffset];
+
+            const openBar = symData[0];
+            const thresholdBar = symData[thresholdIdx];
+            const closeBar = symData[symData.length - 1];
+            const open = openBar.o;
+            const close = closeBar.c;
+            const thresholdPrice = thresholdBar.c;
+            const diffFraction = (thresholdPrice - open) / open;
+            if (diffFraction > requiredUpFraction && yesterdayPassed) {
+            // if (diffFraction < 0) {     // use smallest instead
+                
+                let closeToUse = false;
+                for (let j = thresholdIdx; j < symData.length; j++) {
+                    const thisBar = symData[j];
+                    if (!closeToUse && stopLoss && thisBar.c < thresholdPrice * (1 - stopLoss)) {
+                        closeToUse = thisBar.c;
                     }
+                    if (!closeToUse && takeProfit && thisBar.c > thresholdPrice * (1 + takeProfit)) {
+                        closeToUse = thresholdPrice * (1 + takeProfit);
+                    }
+                }
+                if (!closeToUse) {
+                    closeToUse = close;
+                }
+
+                let checksPassed = true;
+                
+                if (onlyGain) {
+                    // if (symData[0].c < symData[0].o) {
+                    //     checksPassed = false;
+                    // }
+                    for (let j = 1; j < thresholdIdx; j++) {
+                        const lastBar = symData[j - 1];
+                        const thisBar = symData[j];
+                        if (thisBar.c < lastBar.c) {
+                            checksPassed = false;
+                        }
+                    }
+                }
+                if (increasingGain) {
+                    let lastGain = symData[0].c - symData[0].o;
+                    for (let j = 1; j < thresholdIdx; j++) {
+                        const lastBar = symData[j - 1];
+                        const thisBar = symData[j];
+                        const thisGain = thisBar.c - lastBar.c;
+                        if (thisGain < lastGain) {
+                            checksPassed = false;
+                        }
+                        lastGain = thisGain;
+                    }
+                }
+                if (steadyGain) {
+                    let lastGain = symData[0].c - symData[0].o;
+                    for (let j = 1; j < thresholdIdx; j++) {
+                        const lastBar = symData[j - 1];
+                        const thisBar = symData[j];
+                        const thisGain = thisBar.c - lastBar.c;
+                        if (Math.abs(thisGain - lastGain) > steadyGain * lastGain) {
+                            checksPassed = false;
+                        }
+                        lastGain = thisGain;
+                    }
+                }
+
+                if (checksPassed) {
+
+                    if (!useNum) {
+                        // ****** use all positives *****
+                        if (diffFraction > 0) {
+                        // if (diffFraction < 0) {     // use smallest instead
+                            candidates.push({
+                                sym: sym,
+                                diffFraction: diffFraction,
+                                thresholdPrice: thresholdPrice,
+                                close: closeToUse
+                            });
+                        }
+                    } else {
+                        // ***** use set number *****
+                        let stillGood = false;
+                        if (Math.abs(1 - (nextBar.c / thresholdPrice)) < 0.02) {
+                        // if (nextBar.c / thresholdPrice < 1.03) {
+                            stillGood = true;
+                        }
+                        // if (candidates.length === 0 || diffFraction > candidates[0].diffFraction && (!allSymsData[sym] || !allSymsData[sym].shortable)) {
+                        if (candidates.length < numSymsToUse || diffFraction > candidates[0].diffFraction && stillGood) {
+                            candidates.push({
+                                sym: sym,
+                                diffFraction: diffFraction,
+                                actualThresholdPrice: thresholdPrice,
+                                thresholdPrice: nextBar.c,
+                                close: closeToUse
+                                // close: symData[Math.floor(symData.length * (0.25))].c
+                            });
+                            candidates.sort((a, b) => {
+                                if (a.diffFraction > b.diffFraction) {
+                                // if (a.diffFraction < b.diffFraction) {      // use smallest instead
+                                    return 1;
+                                } else {
+                                    return -1;
+                                }
+                            });
+                            while (candidates.length > useNum) {
+                                candidates.shift();
+                            }
+                        }
+                    }
+                } 
+                
+
+                if (close > thresholdPrice) {
+                    upFractions.push((close - thresholdPrice) / thresholdPrice);
+                    upSyms.push(sym);
+                    trends += 1;
+                }
+                if (close < thresholdPrice) {
+                    downFractions.push((close - thresholdPrice) / thresholdPrice);
+                    downSyms.push(sym);
+                    reverses += 1;
+                }
+            } else if (diffFraction < 0) {
+                if (close > thresholdPrice) {
+                    reverses += 1;
+                }
+                if (close < thresholdPrice) {
+                    trends += 1;
                 }
             }
         }
-
-        const lastBar = thisData[thisData.length - 1];
-        theseClosePrices[sym] = lastBar.c;
     });
-    lastClosePrices = theseClosePrices;
 
-    if (todayTradeNums.length > 0) {
 
-        // ******** short ********
-        const tradeAmt = amt / todayTradeNums.length;
-        todayTradeNums.forEach((numSet) => {
-            const revenue = tradeAmt;
-            const cost = revenue * (numSet.halfHourPrice / numSet.openPrice);
-            amt += revenue - cost;
-        });
-        
-        // // ******** buy ********
-        // const tradeAmt = amt / todayTradeNums.length;
-        // let newAmt = 0;
-        // todayTradeNums.forEach((numSet) => {
-        //     let thisAmt = tradeAmt;
-        //     const ratio = numSet.halfHourPrice / numSet.openPrice;
-        //     thisAmt *= ratio;
-        //     newAmt += thisAmt;
-        // });
-        // amt = newAmt;
+    const useFractions = [];
+    candidates.forEach((candidateObj) => {
+        const useFraction = (candidateObj.close - candidateObj.thresholdPrice) / candidateObj.thresholdPrice;
+        useFractions.push(useFraction);
+        if (useFraction > 0) {
+            right += 1;
+        }
+        if (useFraction < 0) {
+            wrong += 1;
+        }
+
+        // for data guessing
+        const sym = candidateObj.sym;
+        const symData = allData[sym];
+        const checkFraction = 0.9;
+        const checkIdx = Math.floor(checkFraction * symData.length);
+        let max = 0;
+        for (let j = 0; j < checkIdx; j++) {
+            if (symData[j].c > max) {
+                max = symData[j].c;
+            }
+        }
+        const checkPrice = symData[checkIdx].c;
+        // if (candidateObj.thresholdPrice > candidateObj.actualThresholdPrice) {
+        if (checkPrice > 0.95 * max) {
+            if (candidateObj.close > checkPrice) {
+                upAfterMid += 1;
+            }
+            if (candidateObj.close < checkPrice) {
+                downAfterMid += 1;
+            }
+        }
+        // end data guessing
+
+    });
+    lastSymData = newLastSymData;
+    // console.log(candidates.map(ele => ele.sym));
+    // console.log(dateToRun, arrAve(useFractions));
+
+    
+    if (!modelSym || modelUp) {
+        allFractions.push(useFractions.length > 0 ? arrAve(useFractions) : 0);
+        if (useFractions.length > 0) {
+            amt *= (1 + arrAve(useFractions));
+            // const amts = [];
+            // for (let j = 0; j < 5; j++) {
+            //     if (useFractions[j]) {
+            //         amts.push((amt / 5) * (1 + useFractions[j]));
+            //     } else {
+            //         amts.push(amt / 5);
+            //     }
+            // }
+            // amt = 0;
+            // amts.forEach((n) => {
+            //     amt += n;
+            // });
+        }
+        if (arrAve(useFractions) > 0) {
+            upDays += 1;
+        }
+        if (arrAve(useFractions) < 0) {
+            downDays += 1;
+        }
     }
+    // console.log(amt, useFractions.length);
+    // console.log(amt, candidates.map(ele => ele.sym));
+    // console.log(amt, candidates.map((ele, i) => {
+    //     return {
+    //         sym: ele.sym,
+    //         ratio: useFractions[i],
+    //         threshold: ele.thresholdPrice,
+    //         close: ele.close,
+    //     }
+    // }));
     console.log(amt);
+
+    // console.log(otherAmt);
+
+    amts.push(amt);
 }
 
 function eastern930Timestamp(dateStr) {

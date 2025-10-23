@@ -4,7 +4,7 @@ const { CREDS } = require("./CREDS");
 // fetches days overview for shorting algo
 
 const datesNeeded = [
-    "2025-10-09"
+    "2025-10-23"
 ];
 
 fetchAndCacheDaySummariesRecursive(datesNeeded, 0);

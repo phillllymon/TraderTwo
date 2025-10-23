@@ -2,7 +2,7 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const startDate = "2025-06-01";
+const startDate = "2025-01-01";
 const endDate = "2026-01-01";
 
 const fileToUse = "allSymsE";
@@ -218,7 +218,7 @@ for (let i = 1; i < datesToUse.length; i++) {
                         && yesterdayData[sym].v > 1000000
                         // && entry.v > 1000000
                         // && !allSyms[sym].easy_to_borrow
-                        // && !allSyms[sym].name.toLowerCase().includes("quantum")
+                        && !allSyms[sym].name.toLowerCase().includes("quantum")
                         && !allSyms[sym].name.toLowerCase().includes("lever")
                         // && !allSyms[sym].name.toLowerCase().includes(" ai")
                         && !sym.includes("Q")
@@ -310,14 +310,14 @@ for (let i = 1; i < datesToUse.length; i++) {
                     // const thisRatio = todayData[sym].c / tomorrowData[sym].c;
                     thisDayRatios.push(thisRatio);
     
-                    // EXPERIMENT WITH % rules / stop loss
+                    // // EXPERIMENT WITH % rules / stop loss
                     // const open = tomorrowData[sym].o;
                     // const close = tomorrowData[sym].c;
                     // const low = tomorrowData[sym].l;
                     // const high = tomorrowData[sym].h;
-                    // const takeProfitFraction = 0.8;
+                    // const takeProfitFraction = 0.7;
                     // const buyPrice = low < takeProfitFraction * open ? takeProfitFraction * open : close;
-                    // // const stopLossFraction = 1.15;
+                    // // const stopLossFraction = 1.2;
                     // // const buyPrice = high > stopLossFraction * open ? stopLossFraction * open : close;
                     // thisDayRatios.push(open / buyPrice);
     
@@ -427,6 +427,7 @@ for (let i = 1; i < datesToUse.length; i++) {
 
         amts.push(amt);
         console.log(amt, tradedSyms.map(ele => ele[0]));
+        // console.log(amt);
         ratios.push(tradeRatio);
     
         // if (tradeRatio > 1) {

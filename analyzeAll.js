@@ -4,7 +4,7 @@ const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 
-// const dates = datesToUse.slice(datesToUse.length - 12, datesToUse.length);
+// const dates = datesToUse.slice(datesToUse.length - 1, datesToUse.length);
 const dates = datesToUse;
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
@@ -31,8 +31,8 @@ const minVol = params.minVolumeToUse;
 const minPrice = params.minPriceToUse;
 
 const nextBarOffset = 2;
-const takeProfit = 0.2;
-const stopLoss = 0.3;
+const takeProfit = 0.15;
+const stopLoss = 0.15;
 
 const onlyGain = true;          // every 5 minute interval up to threshold must be a gain
 const increasingGain = false;   // every 5 minute interval up to threshold must be greater than previous
@@ -238,7 +238,6 @@ function runDay(dateToRun, useNum) {
                     }
                 }
 
-
                 if (checksPassed) {
 
                     if (!useNum) {
@@ -260,7 +259,7 @@ function runDay(dateToRun, useNum) {
                             stillGood = true;
                         }
                         // if (candidates.length === 0 || diffFraction > candidates[0].diffFraction && (!allSymsData[sym] || !allSymsData[sym].shortable)) {
-                        if (candidates.length === 0 || diffFraction > candidates[0].diffFraction && stillGood) {
+                        if (candidates.length < numSymsToUse || diffFraction > candidates[0].diffFraction && stillGood) {
                             candidates.push({
                                 sym: sym,
                                 diffFraction: diffFraction,
@@ -383,7 +382,7 @@ function runDay(dateToRun, useNum) {
         }
     }
     // console.log(amt, useFractions.length);
-    // console.log(amt, candidates.map(ele => ele.sym));
+    // console.log(amt, dateToRun, candidates.map(ele => ele.sym));
     // console.log(amt, candidates.map((ele, i) => {
     //     return {
     //         sym: ele.sym,

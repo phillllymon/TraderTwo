@@ -1,16 +1,17 @@
 const { fetchMinutelyOneDayOneSym } = require("./fetchFromPolygon");
 const fs = require("fs");
 const { CREDS } = require("./CREDS");
+const { params } = require("./buyParams");
 
 // run this at ~6:31am and verify the timestamp is after 6:30. Then wait till it's over (around 6:56am) and buy the returned syms
 
 // ----- inputs -----
-const intervalLength = 5;   // minutes
-const numIntervals = 5;
-const numSyms = 5;
-const increaseNeeded = 0.04;
-const firstBarVolNeeded = 1000;
-const minPrice = 5;
+const intervalLength = params.minutesPerInterval;   // minutes
+const numIntervals = params.minutesPerInterval / intervalLength;
+const numSyms = params.numSymsToUse;
+const increaseNeeded = params.upFraction;
+const minVol = params.minVolumeToUse;
+const minPrice = params.minPriceToUse;
 // ------------------
 
 const masterData = {};

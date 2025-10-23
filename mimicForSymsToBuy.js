@@ -30,6 +30,10 @@ const {
     minVolumeToUse
 } = params;
 
+// const numSymsToReturn = numSymsToUse;
+const numSymsToReturn = 15; // TEMP TEMP TEMP
+
+
 const allSyms = JSON.parse(fs.readFileSync("./data/allSymsD.txt")).map(ele => ele.symbol).slice(0, 11000);
 // const allSyms = JSON.parse(fs.readFileSync("./data/allSymsD.txt")).map(ele => ele.symbol).slice(1000, 1500);
 
@@ -69,7 +73,7 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
         });
 
         // allow 1 missing bar
-        if (barCount > (thresholdMins / 5) - 2) {
+        if (barCount > (thresholdMins / 5) - 1) {
 
             const openPrice = symData[0].o;
             // const thresholdIdx = Math.floor(thresholdMins / minutesPerBar);
@@ -87,7 +91,7 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
                     }
                 }
                 if (useSym) {
-                    if (candidates.length === 0 || diffFraction > candidates[0].diffFraction) {
+                    if (candidates.length < numSymsToReturn || diffFraction > candidates[0].diffFraction) {
                         candidates.push({
                             sym: sym,
                             diffFraction: diffFraction,
@@ -100,7 +104,7 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
                                 return -1;
                             }
                         });
-                        while (candidates.length > 10) {
+                        while (candidates.length > numSymsToReturn) {
                         // while (candidates.length > numSymsToUse) {
                             candidates.shift();
                         }
@@ -117,6 +121,39 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
     const endTime = new Date().getTime();
     const elapsedTime = (endTime - startTime) / 60000;
     console.log(`time to run: ${elapsedTime} minutes`);
+
+    const currentPrices = {};
+    fetchCurrentMarketSnapshot().then((snapshot) => {
+        snapshot.tickers.forEach((tickerBar) => {
+            if (candidates.map(ele => ele.sym).includes(tickerBar.ticker)) {
+                currentPrices[tickerBar.ticker] = tickerBar.min.c;
+            }
+        });
+    });
+
+    console.log(`got current prices for ${Object.keys(currentPrices).length} syms`);
+    const finalData = [];
+    candidates.forEach((candidateObj) => {
+        const sym = candidateObj.sym;
+        if (currentPrices[sym]) {
+            const thresholdPrice = candidateObj.thresholdPrice;
+            const currentPrice = currentPrices[sym];
+            if (Math.abs(thresholdPrice - currentPrice) < 0.05 * thresholdPrice) {
+                finalData.push({
+                    sym: sym,
+                    diffFraction: candidateObj.diffFraction
+                });
+            }
+        }
+    });
+    finalData.sort((a, b) => {
+        if (a.diffFraction > b.diffFraction) {
+            return 1;
+        } else {
+            return -1;
+        }
+    });
+    console.log(finalData.slice(Math.max(finalData.length - params.numSymsToUse, 0), finalData.length).map(ele => ele.sym));
 });
 
 // function fetchDataForDate(date) {
