@@ -71,7 +71,7 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
                 barCount += 1;
             }
         });
-
+        
         // allow 1 missing bar
         if (barCount > (thresholdMins / 5) - 1) {
 
@@ -80,6 +80,7 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
             const thresholdIdx = barCount - 1;
             const thresholdPrice = symData[thresholdIdx].c;
             const diffFraction = (thresholdPrice - openPrice) / openPrice;
+            
             if (diffFraction > upFraction) {
             // if (thresholdPrice > upFraction * openPrice) {
                 let useSym = true;
@@ -129,31 +130,30 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
                 currentPrices[tickerBar.ticker] = tickerBar.min.c;
             }
         });
-    });
-
-    console.log(`got current prices for ${Object.keys(currentPrices).length} syms`);
-    const finalData = [];
-    candidates.forEach((candidateObj) => {
-        const sym = candidateObj.sym;
-        if (currentPrices[sym]) {
-            const thresholdPrice = candidateObj.thresholdPrice;
-            const currentPrice = currentPrices[sym];
-            if (Math.abs(thresholdPrice - currentPrice) < 0.05 * thresholdPrice) {
-                finalData.push({
-                    sym: sym,
-                    diffFraction: candidateObj.diffFraction
-                });
+        console.log(`got current prices for ${Object.keys(currentPrices).length} syms`);
+        const finalData = [];
+        candidates.forEach((candidateObj) => {
+            const sym = candidateObj.sym;
+            if (currentPrices[sym]) {
+                const thresholdPrice = candidateObj.thresholdPrice;
+                const currentPrice = currentPrices[sym];
+                if (Math.abs(thresholdPrice - currentPrice) < 0.05 * thresholdPrice) {
+                    finalData.push({
+                        sym: sym,
+                        diffFraction: candidateObj.diffFraction
+                    });
+                }
             }
-        }
+        });
+        finalData.sort((a, b) => {
+            if (a.diffFraction > b.diffFraction) {
+                return 1;
+            } else {
+                return -1;
+            }
+        });
+        console.log(finalData.slice(Math.max(finalData.length - params.numSymsToUse, 0), finalData.length).map(ele => ele.sym));
     });
-    finalData.sort((a, b) => {
-        if (a.diffFraction > b.diffFraction) {
-            return 1;
-        } else {
-            return -1;
-        }
-    });
-    console.log(finalData.slice(Math.max(finalData.length - params.numSymsToUse, 0), finalData.length).map(ele => ele.sym));
 });
 
 // function fetchDataForDate(date) {

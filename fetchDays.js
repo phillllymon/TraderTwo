@@ -258,3 +258,13 @@ function hasStartParams(params) {
 }
 
 module.exports = { fetchDays, fetchDaysAllStocks };
+
+fetch("https://us.etrade.com/webapitrd/stockorder/previewtsp.json", {
+    method: "POST",
+    headers: {"userID":null,"value":{"accountId":"676570191","acctDesc":"","allOrNone":"","complianceReviewValue":"","expirationTs":"","gtdFlag":"0","legRequestList":[{"quantity":"100","symbol":"NEGG","transaction":"3"}],"limitPrice":62.3,"marketSession":"1","orderTerm":"3","orderType":1,"overrideRestrictedCd":"","preClearanceCode":"","priceType":"2","stopPrice":""}}
+}).then((res) => {
+    console.log(res);
+    res.json().then((r) => {
+        console.log(r);
+    });
+});

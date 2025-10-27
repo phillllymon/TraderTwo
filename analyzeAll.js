@@ -4,7 +4,7 @@ const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 
-// const dates = datesToUse.slice(datesToUse.length - 1, datesToUse.length);
+// const dates = datesToUse.slice(datesToUse.length - 20, datesToUse.length);
 const dates = datesToUse;
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
@@ -51,6 +51,8 @@ let successNextDayDowns = 0;
 let failNextDayUps = 0;
 let failNextDayDowns = 0;
 
+let highs = {};
+
 dates.forEach((date) => {
     runDay(date, numSymsToUse);
 });
@@ -87,6 +89,7 @@ function runDay(dateToRun, useNum) {
     const syms = [];
     
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
+    const todayHighs = {};
 
     // EXP
     const otherUseFractions = [];
@@ -94,8 +97,9 @@ function runDay(dateToRun, useNum) {
         if (data[lastSym]) {
             const yesterdayPrice = lastSymData[lastSym].closePrice;
             const todayOpenPrice = data[lastSym][0].o;
+            const todaySellPrice = data[lastSym][data[lastSym].length - 1].c;
             if (lastSymData[lastSym].success) {
-                otherUseFractions.push(lastSymData[lastSym].closePrice / lastSymData[lastSym].thresholdPrice);
+                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
                 if (todayOpenPrice > yesterdayPrice) {
                     successNextDayUps += 1;
                 }
@@ -103,7 +107,7 @@ function runDay(dateToRun, useNum) {
                     successNextDayDowns += 1;
                 }
             } else {
-                otherUseFractions.push(lastSymData[lastSym].closePrice / lastSymData[lastSym].thresholdPrice);
+                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
                 if (todayOpenPrice > yesterdayPrice) {
                     failNextDayUps += 1;
                 }
@@ -197,9 +201,16 @@ function runDay(dateToRun, useNum) {
                 }
                 if (!closeToUse) {
                     closeToUse = close;
+                    // closeToUse = symData[Math.floor(symData.length / 2)].c;
                 }
 
                 let checksPassed = true;
+
+                // if (highs[sym]) {
+                //     if (thresholdPrice > 1.15 * highs[sym]) {
+                //         checksPassed = false;
+                //     }
+                // }
                 
                 if (onlyGain) {
                     // if (symData[0].c < symData[0].o) {
@@ -303,7 +314,18 @@ function runDay(dateToRun, useNum) {
                 }
             }
         }
+        if (symData.length > 10) {
+            // if (!highs[sym]) {
+            //     highs[sym] = Math.max(...symData.map(ele => ele.c));
+            // } else {
+                const thisMax = Math.max(...symData.map(ele => ele.c));
+                // if (thisMax > highs[sym]) {
+                    todayHighs[sym] = thisMax;
+                // }
+            // }
+        }
     });
+    highs = todayHighs;
 
 
     const useFractions = [];

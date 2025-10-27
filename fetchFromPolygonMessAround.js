@@ -220,7 +220,6 @@ for (let i = 1; i < datesToUse.length; i++) {
                         // && !allSyms[sym].easy_to_borrow
                         && !allSyms[sym].name.toLowerCase().includes("quantum")
                         && !allSyms[sym].name.toLowerCase().includes("lever")
-                        // && !allSyms[sym].name.toLowerCase().includes(" ai")
                         && !sym.includes("Q")
                         && !sym.includes("X")
                         && !sym.includes("LL")
@@ -315,10 +314,10 @@ for (let i = 1; i < datesToUse.length; i++) {
                     // const close = tomorrowData[sym].c;
                     // const low = tomorrowData[sym].l;
                     // const high = tomorrowData[sym].h;
-                    // const takeProfitFraction = 0.7;
-                    // const buyPrice = low < takeProfitFraction * open ? takeProfitFraction * open : close;
-                    // // const stopLossFraction = 1.2;
-                    // // const buyPrice = high > stopLossFraction * open ? stopLossFraction * open : close;
+                    // // const takeProfitFraction = 0.85;
+                    // // const buyPrice = low < takeProfitFraction * open ? takeProfitFraction * open : close;
+                    // const stopLossFraction = 1.5;
+                    // const buyPrice = high > stopLossFraction * open ? stopLossFraction * open : close;
                     // thisDayRatios.push(open / buyPrice);
     
     
@@ -426,8 +425,8 @@ for (let i = 1; i < datesToUse.length; i++) {
         }
 
         amts.push(amt);
-        console.log(amt, tradedSyms.map(ele => ele[0]));
-        // console.log(amt);
+        // console.log(amt, tradedSyms.map(ele => ele[0]));
+        console.log(amt);
         ratios.push(tradeRatio);
     
         // if (tradeRatio > 1) {

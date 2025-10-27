@@ -1,105 +1,153 @@
-const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("./util");
+const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 
+// const { weatherData } = require("./data/weather.js");
+const { weatherData } = require("./data/moreWeather.js");
 
-// const dates = datesToUse.slice(75, 100);
-// const dates = datesToUse.slice(datesToUse.length - 25, datesToUse.length);
-const dates = datesToUse;
 
-const scores = [];
-const fractions = [];
-const midIdx = 60;
+const weatherRows = weatherData.split("\n");
 
-const fractionsToRecord = [];
-const fractionsEveryDay = [];
+// console.log(weatherRows[0].split(",").indexOf('"HourlyDryBulbTemperature"'));
+// console.log(weatherRows[0].split(",").length);
+// console.log(weatherRows[0].split(/(?<!\s),(?!\s)/));
+// console.log(weatherRows.slice(0, 20).map((rowStr) => {
+//     const data = rowStr.split(",");
+//     return data[44];
+// }));
 
-let upDays = 0;
-let downDays = 0;
+const tempData = {};
 
-let right = 0;
-let wrong = 0;
+weatherRows.forEach((row, i) => {
+    if (i > 0) {
+        const rowData = row.split(/(?<!\s),(?!\s)/);
+        const num = Number.parseFloat(rowData[4][1] + rowData[4][2]);
 
-const allFractions = [];
+        const date = rowData[2].slice(1, 11);
+        if (!tempData[date]) {
+            tempData[date] = [];
+        }
+        if (num > 0) {
+            tempData[date].push(num);
+        }
+    }
+});
 
-let amt = 100;
-let amts = [amt];
+const dates = Object.keys(tempData);
+dates.forEach((date) => {
+    tempData[date] = arrAve(tempData[date]);
+});
+
+// console.log(tempData);
+
+// throw("fit");
+
+let hotterUp = 0;
+let hotterDown = 0;
+let colderUp = 0;
+let colderDown = 0;
+
+const sampleSym = "UPRO";
+
+const dayResults = {
+    0: { up: 0, down: 0 },
+    1: { up: 0, down: 0 },
+    2: { up: 0, down: 0 },
+    3: { up: 0, down: 0 },
+    4: { up: 0, down: 0 },
+};
+
+const hotterRatios = [];
+const allRatios = [];
+
+const requiredTempDiff = 0;
+const maxTempDiff = 100;
 
 dates.forEach((date, i) => {
-    console.log(`running day ${i} / ${dates.length}`);
-    const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${date}-0-11000.txt`));
-    const allSyms = Object.keys(data);
-
-    const dayFractions = [];
-
-    let bestSym = false;
-    let bestScore = 0;
-    allSyms.forEach((sym) => {
-        const thisData = data[sym];
-        if (thisData.length === 79 && thisData[0].c > 1 && thisData[0].v > 10000) {
-            for (let i = 6; i < 78; i++) {
-                const segment = thisData.slice(j = i - 6, i + 1);
-                let goodSegment = true;
-
-                for (let j = 1; j < 5; j++) {
-                    if (segment[j].c < segment[j - 1].c) {
-                        goodSegment = false;
-                    }
+    console.log(`day ${i} / ${dates.length}`);
+    let useDate = true;
+    const dateObj = new Date(date);
+    if (dateObj.getDay() > 1) {
+        useDate = true;
+    }
+    if (i > 0 && useDate) {
+        let yesterdayData = readDateData(dates[i - 1]);
+        if (dateObj.getDay() === 0 && i > 3) {
+            yesterdayData = readDateData(dates[i - 3]);
+        }
+        const todayData = readDateData(date);
+        let todayPrice = false;
+        let yesterdayPrice = false;
+        if (todayData) {
+            todayData.forEach((bar) => {
+                if (bar.T === sampleSym) {
+                    todayPrice = bar.c;
                 }
-                if (segment[4].c < 1.05 * segment[0].c) {
-                    goodSegment = false;
+            })
+        }
+        if (yesterdayData) {
+            yesterdayData.forEach((bar) => {
+                if (bar.T === sampleSym) {
+                    yesterdayPrice = bar.c;
                 }
-                if (Math.abs(segment[6].c - segment[4].c) > 0.05 * segment[4].c) {
-                    goodSegment = false;
-                }
+            })
+        }
 
-                if (goodSegment && i === 6) {
-                    const thresholdPrice = thisData[i].c;
-                    const closePrice = thisData[thisData.length - 1].c;
-                    // const closePrice = thisData[Math.min(i + 3, 78)].c;
-                    allFractions.push(closePrice / thresholdPrice);
-                    dayFractions.push(closePrice / thresholdPrice);
-                    if (closePrice > thresholdPrice) {
-                        right += 1;
-                    }
-                    if (closePrice < thresholdPrice) {
-                        wrong += 1;
-                    }
+
+
+        if (todayPrice && yesterdayPrice) {
+            allRatios.push(todayPrice / yesterdayPrice);
+            if (todayPrice > yesterdayPrice) {
+                dayResults[dateObj.getDay()].up += 1;
+            }
+            if (todayPrice < yesterdayPrice) {
+                dayResults[dateObj.getDay()].down += 1;
+            }
+
+            const todayTemp = tempData[date];
+            const yesterdayTemp = tempData[dates[i - 1]];
+            if (todayTemp > requiredTempDiff + yesterdayTemp && todayTemp < maxTempDiff + yesterdayTemp) {
+                hotterRatios.push(todayPrice / yesterdayPrice);
+                if (todayPrice > yesterdayPrice) {
+                    hotterUp += 1;
+                }
+                if (todayPrice < yesterdayPrice) {
+                    hotterDown += 1;
                 }
             }
-            
+            if (todayTemp < yesterdayTemp - requiredTempDiff && todayTemp > yesterdayTemp - maxTempDiff) {
+                if (todayPrice > yesterdayPrice) {
+                    colderUp += 1;
+                }
+                if (todayPrice < yesterdayPrice) {
+                    colderDown += 1;
+                }
+            }
         }
-    });
 
-    console.log(arrAve(dayFractions), arrAve(dayFractions.slice(0, 5)), dayFractions.length);
-    // fractionsEveryDay.push(dayFractions.length > 0 ? arrAve(dayFractions) : 1);
-    const fractionToUse = dayFractions.length > 0 ? arrAve(dayFractions) : 1;
-    fractionsEveryDay.push(fractionToUse);
-    amt *= fractionToUse;
-    amts.push(amt);
+    }
 });
 
-console.log("right: " + right);
-console.log("wrong: " + wrong);
-console.log("ave fraction: " + arrAve(allFractions));
-console.log("ave per day: " + arrAve(fractionsEveryDay));
-amts.forEach((n) => {
-    console.log(n);
+console.log("hotter up: " + hotterUp);
+console.log("hotter down: " + hotterDown);
+console.log("colder up: " + colderUp);
+console.log("colder down: " + colderDown);
+console.log("ave ratio: " + arrAve(allRatios));
+console.log("ave hotter ratio: " + arrAve(hotterRatios));
+
+Object.keys(dayResults).forEach((dayKey) => {
+    const day = ["Mon", "Tue", "Wed", "Thu", "Fri"][dayKey];
+    console.log(`${day} - up: ${dayResults[dayKey].up} down: ${dayResults[dayKey].down} ratio: ${dayResults[dayKey].up / dayResults[dayKey].down}`);
 });
 
-// console.log("------------------------------")
-// scores.slice(0, 300).forEach((n) => {
-//     console.log(n);
-// });
-// console.log("*************");
-// console.log("*************");
-// console.log("*************");
-// fractions.slice(0, 300).forEach((n) => {
-//     console.log(n);
-// });
-// console.log("-----");
-// // console.log(arrAve(fractionsToRecord), fractionsToRecord.length, fractions.length);
-// console.log(arrAve(fractionsEveryDay));
-// console.log("up days: " + upDays);
-// console.log("down days: " + downDays);
+function readDateData(date) {
+    let answer = false;
+    try {
+        const dataArr = JSON.parse(fs.readFileSync(`./data/polygonDays/all${date}.txt`));
+        answer = dataArr;
+    } catch {
+        answer = false;
+    }
+    return answer;
+}
