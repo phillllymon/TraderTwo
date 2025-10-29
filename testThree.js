@@ -48,7 +48,7 @@ let hotterDown = 0;
 let colderUp = 0;
 let colderDown = 0;
 
-const sampleSym = "UPRO";
+const sampleSym = "QQQ";
 
 const dayResults = {
     0: { up: 0, down: 0 },
@@ -82,7 +82,9 @@ dates.forEach((date, i) => {
         if (todayData) {
             todayData.forEach((bar) => {
                 if (bar.T === sampleSym) {
-                    todayPrice = bar.c;
+                    todayPrice = bar.o;
+
+                    // yesterdayPrice = bar.o; /////
                 }
             })
         }
@@ -107,7 +109,7 @@ dates.forEach((date, i) => {
 
             const todayTemp = tempData[date];
             const yesterdayTemp = tempData[dates[i - 1]];
-            if (todayTemp > requiredTempDiff + yesterdayTemp && todayTemp < maxTempDiff + yesterdayTemp) {
+            if (todayTemp > requiredTempDiff + yesterdayTemp && todayTemp < maxTempDiff + yesterdayTemp && dateObj.getDay() === 0) {
                 hotterRatios.push(todayPrice / yesterdayPrice);
                 if (todayPrice > yesterdayPrice) {
                     hotterUp += 1;

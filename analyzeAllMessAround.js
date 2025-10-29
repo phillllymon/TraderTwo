@@ -1,57 +1,19 @@
-const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("./util");
+const { 
+    createSimpleDaysArr,
+    dataArrToSymObj, 
+    arrAve, 
+    // readDateData 
+} = require("./util");
 const fs = require("fs");
 const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 
-// const dates = datesToUse.slice(datesToUse.length - 1, datesToUse.length);
+// const dates = datesToUse.slice(datesToUse.length - 20, datesToUse.length);
+// const dates = datesToUse.slice(50, 75);
 const dates = datesToUse;
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
-const cryptoEtfs = [
-    "IBIT",
-    "FBTC",
-    "GBTC",
-    "BTC",
-    "ARKB",
-    "BITB",
-    "BITO",
-    "BITX",
-    "ARKW",
-    "HODL",
-    "BITU",
-    "BTCI",
-    "MSTX",
-    "BTCO",
-    "BRRR",
-    "EZBC",
-    "BITQ",
-    "WGMI",
-    "STCE",
-    "BTCW",
-    "NCIQ",
-    "BITI",
-    "SPBC",
-    "MST",
-    "SBIT",
-    "RIOX",
-    "BITS",
-    "BTF",
-    "BETH",
-    "BITY",
-    "BITC",
-    "MNRS",
-    "BAGY",
-    "DEFI",
-    "BETE",
-    "SATO",
-    "BTFX",
-    "BMAX",
-    "BLKC",
-    "BTOP",
-    "BCOR",
-    "BITW"
-];
 
 // main
 let amt = 100;
@@ -72,9 +34,7 @@ const modelSym = false;
 const thresholdMins = params.thresholdMins;
 
 const minVol = params.minVolumeToUse;
-// const minVol = 1000;
 const minPrice = params.minPriceToUse;
-// const minPrice = 2;
 
 const nextBarOffset = 2;
 const takeProfit = 0.15;
@@ -96,6 +56,8 @@ let successNextDayUps = 0;
 let successNextDayDowns = 0;
 let failNextDayUps = 0;
 let failNextDayDowns = 0;
+
+let highs = {};
 
 dates.forEach((date) => {
     runDay(date, numSymsToUse);
@@ -129,10 +91,54 @@ console.log("bad runs: " + badRun);
 
 
 function runDay(dateToRun, useNum) {
+
+    const prevDate = getPreviousNYSEOpenDay(dateToRun);
+    const prevDayDataArr = readDateData(prevDate);
+    const yesterdayHighPrices = {};
+    if (prevDayDataArr) {
+        prevDayDataArr.forEach((bar) => {
+            yesterdayHighPrices[bar.T] = bar;
+        });
+    }
+
     const allData = {};
     const syms = [];
     
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
+    const todayHighs = {};
+
+    // EXP
+    const otherUseFractions = [];
+    Object.keys(lastSymData).forEach((lastSym) => {
+        if (data[lastSym]) {
+            const yesterdayPrice = lastSymData[lastSym].closePrice;
+            const todayOpenPrice = data[lastSym][0].o;
+            const todaySellPrice = data[lastSym][data[lastSym].length - 1].c;
+            if (lastSymData[lastSym].success) {
+                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
+                if (todayOpenPrice > yesterdayPrice) {
+                    successNextDayUps += 1;
+                }
+                if (todayOpenPrice < yesterdayPrice) {
+                    successNextDayDowns += 1;
+                }
+            } else {
+                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
+                if (todayOpenPrice > yesterdayPrice) {
+                    failNextDayUps += 1;
+                }
+                if (todayOpenPrice < yesterdayPrice) {
+                    failNextDayDowns += 1;
+                }
+            }
+        } else {
+            // console.log(lastSym);
+        }
+    });
+    if (otherUseFractions.length > 0) {
+        otherAmt *= arrAve(otherUseFractions);
+    }
+    // END EXP
 
     // Object.keys(data).slice(1000, 1500).forEach((sym) => {
     Object.keys(data).forEach((sym) => {
@@ -162,11 +168,8 @@ function runDay(dateToRun, useNum) {
 
     let modelUp = false;
 
-    const newLastSymData = {};
-
     syms.forEach((sym, i) => {
         const symData = allData[sym];
-        newLastSymData[sym] = symData;
 
         // ------- new option: look at timestamps and verify if there are 5 bars before 10am
         const openingBellMs = eastern930Timestamp(dateToRun);
@@ -177,31 +180,15 @@ function runDay(dateToRun, useNum) {
                 barCount += 1;
             }
         });
+        // allow 1 missing bar
         if (barCount > (thresholdMins / params.minutesPerInterval) - 1) {
 
-            let yesterdayPassed = true;
-            if (cryptoEtfs.includes(sym)) {
-                yesterdayPassed = false;
-            }
-            const cryptoWords = ["crypto", "btc", "bitcoin", "eth", "2x", "etf", "lever"];
-            if (allSymsData[sym]) {
-                cryptoWords.forEach((word) => {
-                    if (allSymsData[sym].name.toLowerCase().includes(word)) {
-                        yesterdayPassed = false;
-                    }
-                });
-            }
-            // if (lastSymData[sym]) {
-            //     // yesterdayPassed = false;
-            //     const yesterdayOpen = lastSymData[sym][0].o;
-            //     const yesterdayClose = lastSymData[sym][lastSymData[sym].length - 1].c;
-            //     if (yesterdayClose > 1.05 * yesterdayOpen) {
-            //         yesterdayPassed = false;
-            //     }
-            //     if (yesterdayClose < 0.95 * yesterdayOpen) {
-            //         yesterdayPassed = false;
-            //     }
-            // }
+
+        // ------- old option: just require more than 70 bars to approximate having 4 or 5 before 10am
+        // if (numBars > 70) {
+
+            // const thresholdIdx = Math.floor(thresholdMins / minutesPerBar);
+
 
             const thresholdIdx = barCount - 1;
 
@@ -215,7 +202,7 @@ function runDay(dateToRun, useNum) {
             const close = closeBar.c;
             const thresholdPrice = thresholdBar.c;
             const diffFraction = (thresholdPrice - open) / open;
-            if (diffFraction > requiredUpFraction && yesterdayPassed) {
+            if (diffFraction > requiredUpFraction) {
             // if (diffFraction < 0) {     // use smallest instead
                 
                 let closeToUse = false;
@@ -230,9 +217,22 @@ function runDay(dateToRun, useNum) {
                 }
                 if (!closeToUse) {
                     closeToUse = close;
+                    // closeToUse = symData[Math.floor(symData.length / 2)].c;
                 }
 
                 let checksPassed = true;
+
+                if (yesterdayHighPrices[sym]) {
+                    const yesterdayHigh = yesterdayHighPrices[sym].h;
+                    if (thresholdPrice > 1.5 * yesterdayHigh) {
+                        checksPassed = false;
+                    }
+                    if (yesterdayHighPrices[sym].c > 1.1 * yesterdayHighPrices[sym].o) {
+                        checksPassed = false;
+                    }
+                } else {
+                    // checksPassed = false;
+                }
                 
                 if (onlyGain) {
                     // if (symData[0].c < symData[0].o) {
@@ -287,7 +287,7 @@ function runDay(dateToRun, useNum) {
                     } else {
                         // ***** use set number *****
                         let stillGood = false;
-                        if (Math.abs(1 - (nextBar.c / thresholdPrice)) < 0.02) {
+                        if (Math.abs(1 - (nextBar.c / thresholdPrice)) < 0.05) {
                         // if (nextBar.c / thresholdPrice < 1.03) {
                             stillGood = true;
                         }
@@ -336,10 +336,23 @@ function runDay(dateToRun, useNum) {
                 }
             }
         }
+        if (symData.length > 10) {
+            // if (!highs[sym]) {
+            //     highs[sym] = Math.max(...symData.map(ele => ele.c));
+            // } else {
+                const thisMax = Math.max(...symData.map(ele => ele.c));
+                // if (thisMax > highs[sym]) {
+                    // highs[sym] = thisMax;
+                    todayHighs[sym] = thisMax;
+                // }
+            // }
+        }
     });
+    highs = todayHighs;
 
 
     const useFractions = [];
+    const newLastSymData = {};
     candidates.forEach((candidateObj) => {
         const useFraction = (candidateObj.close - candidateObj.thresholdPrice) / candidateObj.thresholdPrice;
         useFractions.push(useFraction);
@@ -349,6 +362,16 @@ function runDay(dateToRun, useNum) {
         if (useFraction < 0) {
             wrong += 1;
         }
+
+        // EXP
+        newLastSymData[candidateObj.sym] = {
+            closePrice: candidateObj.close,
+            // closePrice: data[candidateObj.sym][data[candidateObj.sym].length - 1].c,
+            success: data[candidateObj.sym][data[candidateObj.sym].length - 1].c > candidateObj.thresholdPrice,
+            thresholdPrice: candidateObj.thresholdPrice
+        };
+        // END EXP
+
 
         // for data guessing
         const sym = candidateObj.sym;
@@ -404,7 +427,7 @@ function runDay(dateToRun, useNum) {
         }
     }
     // console.log(amt, useFractions.length);
-    // console.log(amt, candidates.map(ele => ele.sym));
+    // console.log(amt, dateToRun, candidates.map(ele => ele.sym));
     // console.log(amt, candidates.map((ele, i) => {
     //     return {
     //         sym: ele.sym,
@@ -460,4 +483,130 @@ function eastern930Timestamp(dateStr) {
   
     // adjust to the target timezone instant
     return systemLocal930Ms + offset;
+}
+
+
+// ---------- Helpers (UTC-only) ----------
+function parseISOToUTCDate(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d));
+  }
+  function isoFromUTCDate(d) {
+    return d.toISOString().slice(0, 10);
+  }
+  
+  // ---------- Main function ----------
+  function getPreviousNYSEOpenDay(dateStr) {
+    const holidaysCache = {}; // cache holidays by year
+    let date = parseISOToUTCDate(dateStr);
+  
+    // move back at least one day (we want the previous open day)
+    date.setUTCDate(date.getUTCDate() - 1);
+  
+    while (true) {
+      const yr = date.getUTCFullYear();
+      if (!holidaysCache[yr]) holidaysCache[yr] = getNYSEHolidays(yr);
+  
+      if (isTradingDayUTC(date, holidaysCache[yr])) {
+        return isoFromUTCDate(date);
+      }
+  
+      // go back one calendar day
+      date.setUTCDate(date.getUTCDate() - 1);
+    }
+  }
+  
+  // ---------- Trading day check ----------
+  function isTradingDayUTC(date, holidaysArray) {
+    const dow = date.getUTCDay(); // 0=Sun,6=Sat
+    if (dow === 0 || dow === 6) return false;
+    const iso = isoFromUTCDate(date);
+    return !holidaysArray.includes(iso);
+  }
+  
+  // ---------- NYSE holidays (observed) ----------
+  function getNYSEHolidays(year) {
+    const result = [];
+  
+    // observed fixed-date holidays
+    result.push(observedHoliday(`${year}-01-01`)); // New Year's Day
+    result.push(observedHoliday(`${year}-06-19`)); // Juneteenth
+    result.push(observedHoliday(`${year}-07-04`)); // Independence Day
+    result.push(observedHoliday(`${year}-12-25`)); // Christmas
+  
+    // floating holidays
+    result.push(nthWeekdayOfMonth(year, 1, 1, 3)); // MLK Day (3rd Monday Jan) -> weekday=1(Mon), month=1
+    result.push(nthWeekdayOfMonth(year, 1, 2, 3)); // Presidents' Day (3rd Monday Feb)
+    result.push(goodFriday(year));                 // Good Friday
+    result.push(lastWeekdayOfMonth(year, 1, 5));   // Memorial Day (last Monday May)
+    result.push(nthWeekdayOfMonth(year, 1, 9, 1)); // Labor Day (1st Monday Sep)
+    result.push(nthWeekdayOfMonth(year, 4, 11, 4)); // Thanksgiving (4th Thursday Nov)
+  
+    // Remove duplicates & sort
+    const unique = Array.from(new Set(result)).sort();
+    return unique;
+  }
+  
+  // Observed rule: if holiday falls on Saturday -> observed Fri before; if Sunday -> observed Mon after.
+  function observedHoliday(isoDateStr) {
+    const d = parseISOToUTCDate(isoDateStr);
+    const dow = d.getUTCDay();
+    if (dow === 6) { // Saturday -> observed Friday
+      d.setUTCDate(d.getUTCDate() - 1);
+    } else if (dow === 0) { // Sunday -> observed Monday
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return isoFromUTCDate(d);
+  }
+  
+  // nthWeekdayOfMonth(year, weekday, month, n)
+  // weekday: 0=Sun..6=Sat, month: 1=Jan..12=Dec
+  function nthWeekdayOfMonth(year, weekday, month, n) {
+    const first = new Date(Date.UTC(year, month - 1, 1));
+    const firstDow = first.getUTCDay();
+    const offset = (weekday - firstDow + 7) % 7;
+    const day = 1 + offset + (n - 1) * 7;
+    return isoFromUTCDate(new Date(Date.UTC(year, month - 1, day)));
+  }
+  
+  // lastWeekdayOfMonth(year, weekday, month)
+  function lastWeekdayOfMonth(year, weekday, month) {
+    const last = new Date(Date.UTC(year, month, 0)); // last day of month
+    const lastDow = last.getUTCDay();
+    const offset = (lastDow - weekday + 7) % 7;
+    const day = last.getUTCDate() - offset;
+    return isoFromUTCDate(new Date(Date.UTC(year, month - 1, day)));
+  }
+  
+  // Good Friday: compute Easter then subtract 2 days
+  function goodFriday(year) {
+    // Anonymous Gregorian algorithm for Easter Sunday
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    const easter = new Date(Date.UTC(year, month - 1, day));
+    easter.setUTCDate(easter.getUTCDate() - 2); // Good Friday
+    return isoFromUTCDate(easter);
+  }
+
+function readDateData(date) {
+    let answer = false;
+    try {
+        const dataArr = JSON.parse(fs.readFileSync(`./data/polygonDays/all${date}.txt`));
+        answer = dataArr;
+    } catch {
+        answer = false;
+    }
+    return answer;
 }

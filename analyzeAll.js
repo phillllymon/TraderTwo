@@ -206,11 +206,13 @@ function runDay(dateToRun, useNum) {
 
                 let checksPassed = true;
 
-                // if (highs[sym]) {
-                //     if (thresholdPrice > 1.15 * highs[sym]) {
-                //         checksPassed = false;
-                //     }
-                // }
+                if (highs[sym]) {
+                    if (thresholdPrice > 1.5 * highs[sym]) {
+                        checksPassed = false;
+                    }
+                } else {
+                    checksPassed = false;
+                }
                 
                 if (onlyGain) {
                     // if (symData[0].c < symData[0].o) {
@@ -320,6 +322,7 @@ function runDay(dateToRun, useNum) {
             // } else {
                 const thisMax = Math.max(...symData.map(ele => ele.c));
                 // if (thisMax > highs[sym]) {
+                    // highs[sym] = thisMax;
                     todayHighs[sym] = thisMax;
                 // }
             // }

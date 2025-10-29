@@ -2,7 +2,7 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const startDate = "2025-01-01";
+const startDate = "2024-01-01";
 const endDate = "2026-01-01";
 
 const fileToUse = "allSymsE";
@@ -99,6 +99,8 @@ let daysNoGuesses = 0;
 let upGuessDays = 0;
 let downGuessDays = 0;
 
+const allTimeHighs = {};
+
 for (let i = 1; i < datesToUse.length; i++) {
     // const prevData = dataArrToSymObj(readDateData(datesToUse[i - 2]), "T");
     const yesterdayData = dataArrToSymObj(readDateData(datesToUse[i - 1]), "T");
@@ -129,7 +131,13 @@ for (let i = 1; i < datesToUse.length; i++) {
 
         const entry = todayData[sym];
 
-        
+        if (!allTimeHighs[sym]) {
+            allTimeHighs[sym] = entry.h;
+        } else {
+            if (entry.h > allTimeHighs[sym]) {
+                allTimeHighs[sym] = entry.h;
+            }
+        }
 
         if (j === 0) {
             // console.log(new Date(entry.t));
@@ -236,6 +244,7 @@ for (let i = 1; i < datesToUse.length; i++) {
                         
                         // && tomorrowData["QQQ"] && tomorrowData["QQQ"].c < 1.00 * tomorrowData["QQQ"].o
                         // && todayData["QQQ"] && todayData["QQQ"].c > 0.99 * todayData["QQQ"].o
+                        // && allTimeHighs[sym] && close < 0.95 * allTimeHighs[sym]
                     ) {
                     // if (tomorrowData[sym] && tomorrowData[sym].o < close) {
                     // if (true) {
