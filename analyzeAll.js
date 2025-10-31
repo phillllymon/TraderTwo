@@ -127,6 +127,7 @@ function runDay(dateToRun, useNum) {
     // Object.keys(data).slice(1000, 1500).forEach((sym) => {
     Object.keys(data).forEach((sym) => {
         const thisData = data[sym];
+        // if (thisData.length > 50) {
         if (thisData.length > 3) {
             if (
                 true

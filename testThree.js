@@ -66,6 +66,9 @@ const maxTempDiff = 100;
 
 dates.forEach((date, i) => {
     console.log(`day ${i} / ${dates.length}`);
+
+
+
     let useDate = true;
     const dateObj = new Date(date);
     if (dateObj.getDay() > 1) {
@@ -79,54 +82,60 @@ dates.forEach((date, i) => {
         const todayData = readDateData(date);
         let todayPrice = false;
         let yesterdayPrice = false;
-        if (todayData) {
-            todayData.forEach((bar) => {
-                if (bar.T === sampleSym) {
-                    todayPrice = bar.o;
-
-                    // yesterdayPrice = bar.o; /////
+        if (todayData && yesterdayData) {
+            for (let j = todayData; j < todayData.length; j++) {
+                const todayBar = todayData[j];
+                const sym = todayBar.T;
+                console.log(sym);
+                let yesterdayBar = false;
+                yesterdayData.forEach((bar) => {
+                    if (bar.T === sym) {
+                        yesterdayBar = bar;
+                    }
+                });
+                if (yesterdayBar) {
+                    todayPrice = todayBar.o;
+                    yesterdayPrice = yesterdayBar.c;
+                    
+                    if (todayPrice && yesterdayPrice) {
+                        allRatios.push(todayPrice / yesterdayPrice);
+                        if (todayPrice > yesterdayPrice) {
+                            dayResults[dateObj.getDay()].up += 1;
+                        }
+                        if (todayPrice < yesterdayPrice) {
+                            dayResults[dateObj.getDay()].down += 1;
+                        }
+            
+                        const todayTemp = tempData[date];
+                        const yesterdayTemp = tempData[dates[i - 1]];
+                        if (todayTemp > requiredTempDiff + yesterdayTemp && todayTemp < maxTempDiff + yesterdayTemp && dateObj.getDay() === 0) {
+                            hotterRatios.push(todayPrice / yesterdayPrice);
+                            if (todayPrice > yesterdayPrice) {
+                                hotterUp += 1;
+                            }
+                            if (todayPrice < yesterdayPrice) {
+                                hotterDown += 1;
+                            }
+                        }
+                        if (todayTemp < yesterdayTemp - requiredTempDiff && todayTemp > yesterdayTemp - maxTempDiff) {
+                            if (todayPrice > yesterdayPrice) {
+                                colderUp += 1;
+                            }
+                            if (todayPrice < yesterdayPrice) {
+                                colderDown += 1;
+                            }
+                        }
+                    }
                 }
-            })
+                    
+                
+            }
         }
-        if (yesterdayData) {
-            yesterdayData.forEach((bar) => {
-                if (bar.T === sampleSym) {
-                    yesterdayPrice = bar.c;
-                }
-            })
-        }
+        
+        
 
 
 
-        if (todayPrice && yesterdayPrice) {
-            allRatios.push(todayPrice / yesterdayPrice);
-            if (todayPrice > yesterdayPrice) {
-                dayResults[dateObj.getDay()].up += 1;
-            }
-            if (todayPrice < yesterdayPrice) {
-                dayResults[dateObj.getDay()].down += 1;
-            }
-
-            const todayTemp = tempData[date];
-            const yesterdayTemp = tempData[dates[i - 1]];
-            if (todayTemp > requiredTempDiff + yesterdayTemp && todayTemp < maxTempDiff + yesterdayTemp && dateObj.getDay() === 0) {
-                hotterRatios.push(todayPrice / yesterdayPrice);
-                if (todayPrice > yesterdayPrice) {
-                    hotterUp += 1;
-                }
-                if (todayPrice < yesterdayPrice) {
-                    hotterDown += 1;
-                }
-            }
-            if (todayTemp < yesterdayTemp - requiredTempDiff && todayTemp > yesterdayTemp - maxTempDiff) {
-                if (todayPrice > yesterdayPrice) {
-                    colderUp += 1;
-                }
-                if (todayPrice < yesterdayPrice) {
-                    colderDown += 1;
-                }
-            }
-        }
 
     }
 });

@@ -4,8 +4,8 @@ const { CREDS } = require("./CREDS");
 // fetches days overview for shorting algo
 
 const datesNeeded = [
-    "2025-10-27",
-    "2025-10-28", 
+    // "2025-10-27",
+    "2025-10-30", 
 ];
 
 // const datesNeeded = getDateRange("2021-01-02", "2022-01-01");

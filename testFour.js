@@ -3,7 +3,7 @@ const fs = require("fs");
 const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 
-// const dates = datesToUse.slice(75, 175);
+// const dates = datesToUse.slice(75, 100);
 // const dates = datesToUse.slice(datesToUse.length - 25, datesToUse.length);
 const dates = datesToUse;
 
@@ -20,9 +20,8 @@ const filesToUse = [
 const allSymsData = combineAllSymsFiles(filesToUse);
 // const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
-const codeLength = 3;
-const codeResults = {};
-const tradeRatioResults = {};
+const allTradeRatios = [];
+
 
 let amt = 100;
 const amts = [amt];
@@ -32,88 +31,77 @@ dates.forEach((date, i) => {
     runDay(date);
 });
 
-const results = [];
-Object.keys(codeResults).forEach((key) => {
-    results.push({
-        code: key,
-        up: codeResults[key].up,
-        down: codeResults[key].down,
-        ratio: codeResults[key].down > 0 ? codeResults[key].up / codeResults[key].down : codeResults[key].up,
-        tradeRatio: arrAve(tradeRatioResults[key])
-    })
-});
-results.sort((a, b) => {
-    if (a.ratio > b.ratio) {
-        return 1;
-    } else {
-        return -1;
-    }
-});
-console.log(results);
-
 amts.forEach((n) => {
     console.log(n);
 });
+
+console.log("***************");
+console.log("trades: " + allTradeRatios.length);
+console.log("ave trade ratio: " + arrAve(allTradeRatios));
 
 
 
 function runDay(dateToRun) {
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
     const allSyms = Object.keys(data);
-
+    const symsToUse = [];
     const dayTradeRatios = [];
 
     allSyms.forEach((sym) => {
         const symData = data[sym];
         if (
             symData.length === 79 
-            && symData[0].c > 1 
-            && symData[0].c < 2 
-            && symData[0].v > 5000
-            && symData[codeLength].c > 1.005 * symData[0].c
+            && symData[0].o > 1
+            // && symData[0].o < 2 
+            && symData[0].v > 50000
         ) {
-            const codeArr = [];
-            for (let i = 1; i < codeLength + 1; i++) {
-                const prevBar = symData[i - 1];
-                const thisBar = symData[i];
-                if (thisBar.c > prevBar.c) {
-                    codeArr.push(1);
-                } else {
-                    codeArr.push(0);
-                }
-            }
-            const buyPrice = symData[codeLength].c;
-            const sellPrice = symData[symData.length - 1].c;
-            // const sellPrice = symData[codeLength + 1].c;
-            const code = codeArr.join("-");
-            if (!codeResults[code]) {
-                codeResults[code] = { up: 0, down: 0 };
-            }
-            if (sellPrice > buyPrice) {
-                codeResults[code].up += 1;
-            }
-            if (sellPrice < buyPrice) {
-                codeResults[code].down += 1;
-            }
-            if (!tradeRatioResults[code]) {
-                tradeRatioResults[code] = [];
-            }
-            tradeRatioResults[code].push(sellPrice / buyPrice);
-
-            const codesToUse = [
-                "1-1-0",
-            ];
-
-            if (codesToUse.includes(code)) {
-                dayTradeRatios.push(sellPrice / buyPrice);
-            }
+            symsToUse.push(sym);
         }
     });
 
-    const todayRatio = dayTradeRatios.length > 0 ? arrAve(dayTradeRatios) : 1;
-    amt *= todayRatio;
+    let own = false;
+    let boughtPrice = false;
+    let boughtIdx = 0;
+
+    for (let i = 2; i < 79; i++) {
+        if (own) {
+            if (i > boughtIdx + 3 || data[own][i].c > 1.025 * boughtPrice) {
+                const sellPrice = data[own][i].c;
+                const tradeRatio = sellPrice / boughtPrice;
+                amt *= tradeRatio;
+                own = false;
+                allTradeRatios.push(tradeRatio);
+                // console.log(amt);
+            }
+        }
+        if (!own && i < 75) {
+            let symToTrade = false;
+            let biggestDrop = 0;
+            symsToUse.forEach((sym) => {
+                const prevPrice = data[sym][i - 1].c;
+                const thisPrice = data[sym][i].c;
+                if (thisPrice < prevPrice) {
+                    const thisDrop = prevPrice - thisPrice;
+                    if (thisDrop > biggestDrop 
+                        // && prevPrice / thisPrice > 1.05 
+                        // && prevPrice / thisPrice < 1.02
+                        && data[sym][i - 1].c < data[sym][i - 2].c
+                        && data[sym][i].c < 0.8 * data[sym][0].o
+                    ) {
+                        biggestDrop = thisDrop;
+                        symToTrade = sym;
+                    }
+                }
+            });
+            if (symToTrade) {
+                own = symToTrade;
+                boughtPrice = data[symToTrade][i].c;
+                boughtIdx = i;
+            }
+        }
+    }
+
     amts.push(amt);
-    console.log(amt, todayRatio);
 }
 
 function eastern930Timestamp(dateStr) {

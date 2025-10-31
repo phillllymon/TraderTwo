@@ -2,7 +2,7 @@ const { CREDS } = require("./CREDS");
 const { createSimpleDaysArr, dataArrToSymObj, arrAve } = require("./util");
 const fs = require("fs");
 
-const startDate = "2024-01-01";
+const startDate = "2025-01-01";
 const endDate = "2026-01-01";
 
 const fileToUse = "allSymsE";
