@@ -9,9 +9,9 @@ const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 
-// const dates = datesToUse.slice(datesToUse.length - 20, datesToUse.length);
+const dates = datesToUse.slice(datesToUse.length - 50, datesToUse.length);
 // const dates = datesToUse.slice(50, 75);
-const dates = datesToUse;
+// const dates = datesToUse;
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
@@ -29,7 +29,7 @@ let downDays = 0;
 let upAfterMid = 0;
 let downAfterMid = 0;
 
-const numSymsToUse = params.numSymsToUse;
+const numSymsToUse = 5;
 const modelSym = false;
 const thresholdMins = params.thresholdMins;
 
@@ -57,10 +57,16 @@ let successNextDayDowns = 0;
 let failNextDayUps = 0;
 let failNextDayDowns = 0;
 
-let highs = {};
+const allRatios = [];
+const dayRatios = [];
 
-dates.forEach((date) => {
+dates.forEach((date, i) => {
+    console.log(`day ${i} / ${dates.length}`);
     runDay(date, numSymsToUse);
+});
+
+amts.forEach((n) => {
+    console.log(n);
 });
 
 console.log("total days: " + dates.length);
@@ -70,10 +76,8 @@ console.log("down days: " + downDays);
 console.log(arrAve(allFractions), Math.max(...allFractions), Math.min(...allFractions));
 console.log("right: " + right);
 console.log("wrong: " + wrong);
-console.log("success next day up: " + successNextDayUps);
-console.log("success next day down: " + successNextDayDowns);
-console.log("fail next day up: " + failNextDayUps);
-console.log("fail next day down: " + failNextDayDowns);
+console.log("ave ratio: " + arrAve(allRatios));
+console.log("ave day ratio: " + arrAve(dayRatios));
 
 let goodRun = 0;
 let badRun = 0;
@@ -93,354 +97,79 @@ console.log("bad runs: " + badRun);
 function runDay(dateToRun, useNum) {
 
     const prevDate = getPreviousNYSEOpenDay(dateToRun);
-    const prevDayDataArr = readDateData(prevDate);
-    const yesterdayHighPrices = {};
-    if (prevDayDataArr) {
-        prevDayDataArr.forEach((bar) => {
-            yesterdayHighPrices[bar.T] = bar;
-        });
-    }
 
     const allData = {};
     const syms = [];
     
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
-    const todayHighs = {};
 
-    // EXP
-    const otherUseFractions = [];
-    Object.keys(lastSymData).forEach((lastSym) => {
-        if (data[lastSym]) {
-            const yesterdayPrice = lastSymData[lastSym].closePrice;
-            const todayOpenPrice = data[lastSym][0].o;
-            const todaySellPrice = data[lastSym][data[lastSym].length - 1].c;
-            if (lastSymData[lastSym].success) {
-                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
-                if (todayOpenPrice > yesterdayPrice) {
-                    successNextDayUps += 1;
-                }
-                if (todayOpenPrice < yesterdayPrice) {
-                    successNextDayDowns += 1;
-                }
-            } else {
-                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
-                if (todayOpenPrice > yesterdayPrice) {
-                    failNextDayUps += 1;
-                }
-                if (todayOpenPrice < yesterdayPrice) {
-                    failNextDayDowns += 1;
-                }
-            }
-        } else {
-            // console.log(lastSym);
-        }
-    });
-    if (otherUseFractions.length > 0) {
-        otherAmt *= arrAve(otherUseFractions);
+    let yesterdayData = false;
+    try {
+        yesterdayData = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${prevDate}-0-11000.txt`));
+    } catch (err) {
+
     }
-    // END EXP
+    
+    const todayRatios = [];
+    const bestScores = [];
 
-    // Object.keys(data).slice(1000, 1500).forEach((sym) => {
-    Object.keys(data).forEach((sym) => {
-        const thisData = data[sym];
-        if (thisData.length > 3) {
-            if (
-                true
-                && thisData[0].o > minPrice
-                // && thisData[0].v > 1000
-                && thisData[0].v + thisData[1].v + thisData[2].v + thisData[3].v > minVol
-                // && thisData[0].c < 20 
-                // && thisData[0].v * thisData[0].c > 1000
+    if (data && yesterdayData) {
+        const syms = Object.keys(data);
+        syms.forEach((sym) => {
+            if (true
+                && yesterdayData[sym] && data[sym].length > 70 
+                && yesterdayData[sym].length > 70 
+                && yesterdayData[sym][0].c > 5
+                // && yesterdayData[sym][0].c < 2
+                && yesterdayData[sym][0].v > 10000
             ) {
-                allData[sym] = data[sym];
-                syms.push(sym);
-            }
-        }
-    });
-
-    const upFractions = [];
-    const downFractions = [];
-
-    const upSyms = [];
-    const downSyms = [];
-
-    const candidates = [];
-
-    let modelUp = false;
-
-    syms.forEach((sym, i) => {
-        const symData = allData[sym];
-
-        // ------- new option: look at timestamps and verify if there are 5 bars before 10am
-        const openingBellMs = eastern930Timestamp(dateToRun);
-        const thresholdTimeMs = openingBellMs + (thresholdMins * 60000);
-        let barCount = 0;
-        symData.forEach((bar) => {
-            if (bar.t < thresholdTimeMs) {
-                barCount += 1;
+                const yesterdaySymData = yesterdayData[sym];
+                const todaySymData = data[sym];
+                if (true
+                    && todaySymData[0].o < 0.99 * yesterdaySymData[yesterdaySymData.length - 1].c 
+                    // && todaySymData[0].c > 1.05 * todaySymData[0].o
+                ) {
+                    const score = todaySymData[0].c / todaySymData[0].o;
+                    // const score = yesterdaySymData[yesterdaySymData.length - 1].c / todaySymData[0].o;
+                    // const score = 50;
+                    const closeIdx = 5;
+                    const openIdx = 0;
+                    const thisRatio = todaySymData[closeIdx].c / todaySymData[openIdx].c;
+                    if (bestScores.length < numSymsToUse || score > bestScores[0].score) {
+                        bestScores.push({
+                            score: score,
+                            ratio: thisRatio
+                        });
+                        bestScores.sort((a, b) => {
+                            if (a.score > b.score) {
+                                return 1;
+                            } else {
+                                return -1;
+                            }
+                        });
+                        while (bestScores.length > numSymsToUse) {
+                            bestScores.shift();
+                        }
+                    }
+                }
             }
         });
-        // allow 1 missing bar
-        if (barCount > (thresholdMins / params.minutesPerInterval) - 1) {
-
-
-        // ------- old option: just require more than 70 bars to approximate having 4 or 5 before 10am
-        // if (numBars > 70) {
-
-            // const thresholdIdx = Math.floor(thresholdMins / minutesPerBar);
-
-
-            const thresholdIdx = barCount - 1;
-
-            // const nextBar = symData[Math.floor(symData.length / 4)];
-            const nextBar = symData[thresholdIdx + nextBarOffset];
-
-            const openBar = symData[0];
-            const thresholdBar = symData[thresholdIdx];
-            const closeBar = symData[symData.length - 1];
-            const open = openBar.o;
-            const close = closeBar.c;
-            const thresholdPrice = thresholdBar.c;
-            const diffFraction = (thresholdPrice - open) / open;
-            if (diffFraction > requiredUpFraction) {
-            // if (diffFraction < 0) {     // use smallest instead
-                
-                let closeToUse = false;
-                for (let j = thresholdIdx; j < symData.length; j++) {
-                    const thisBar = symData[j];
-                    if (!closeToUse && stopLoss && thisBar.c < thresholdPrice * (1 - stopLoss)) {
-                        closeToUse = thisBar.c;
-                    }
-                    if (!closeToUse && takeProfit && thisBar.c > thresholdPrice * (1 + takeProfit)) {
-                        closeToUse = thresholdPrice * (1 + takeProfit);
-                    }
-                }
-                if (!closeToUse) {
-                    closeToUse = close;
-                    // closeToUse = symData[Math.floor(symData.length / 2)].c;
-                }
-
-                let checksPassed = true;
-
-                if (yesterdayHighPrices[sym]) {
-                    const yesterdayHigh = yesterdayHighPrices[sym].h;
-                    if (thresholdPrice > 1.5 * yesterdayHigh) {
-                        checksPassed = false;
-                    }
-                    if (yesterdayHighPrices[sym].c > 1.1 * yesterdayHighPrices[sym].o) {
-                        checksPassed = false;
-                    }
-                } else {
-                    // checksPassed = false;
-                }
-                
-                if (onlyGain) {
-                    // if (symData[0].c < symData[0].o) {
-                    //     checksPassed = false;
-                    // }
-                    for (let j = 1; j < thresholdIdx; j++) {
-                        const lastBar = symData[j - 1];
-                        const thisBar = symData[j];
-                        if (thisBar.c < lastBar.c) {
-                            checksPassed = false;
-                        }
-                    }
-                }
-                if (increasingGain) {
-                    let lastGain = symData[0].c - symData[0].o;
-                    for (let j = 1; j < thresholdIdx; j++) {
-                        const lastBar = symData[j - 1];
-                        const thisBar = symData[j];
-                        const thisGain = thisBar.c - lastBar.c;
-                        if (thisGain < lastGain) {
-                            checksPassed = false;
-                        }
-                        lastGain = thisGain;
-                    }
-                }
-                if (steadyGain) {
-                    let lastGain = symData[0].c - symData[0].o;
-                    for (let j = 1; j < thresholdIdx; j++) {
-                        const lastBar = symData[j - 1];
-                        const thisBar = symData[j];
-                        const thisGain = thisBar.c - lastBar.c;
-                        if (Math.abs(thisGain - lastGain) > steadyGain * lastGain) {
-                            checksPassed = false;
-                        }
-                        lastGain = thisGain;
-                    }
-                }
-
-                if (checksPassed) {
-
-                    if (!useNum) {
-                        // ****** use all positives *****
-                        if (diffFraction > 0) {
-                        // if (diffFraction < 0) {     // use smallest instead
-                            candidates.push({
-                                sym: sym,
-                                diffFraction: diffFraction,
-                                thresholdPrice: thresholdPrice,
-                                close: closeToUse
-                            });
-                        }
-                    } else {
-                        // ***** use set number *****
-                        let stillGood = false;
-                        if (Math.abs(1 - (nextBar.c / thresholdPrice)) < 0.05) {
-                        // if (nextBar.c / thresholdPrice < 1.03) {
-                            stillGood = true;
-                        }
-                        // if (candidates.length === 0 || diffFraction > candidates[0].diffFraction && (!allSymsData[sym] || !allSymsData[sym].shortable)) {
-                        if (candidates.length < numSymsToUse || diffFraction > candidates[0].diffFraction && stillGood) {
-                            candidates.push({
-                                sym: sym,
-                                diffFraction: diffFraction,
-                                actualThresholdPrice: thresholdPrice,
-                                thresholdPrice: nextBar.c,
-                                close: closeToUse
-                                // close: symData[Math.floor(symData.length * (0.25))].c
-                            });
-                            candidates.sort((a, b) => {
-                                if (a.diffFraction > b.diffFraction) {
-                                // if (a.diffFraction < b.diffFraction) {      // use smallest instead
-                                    return 1;
-                                } else {
-                                    return -1;
-                                }
-                            });
-                            while (candidates.length > useNum) {
-                                candidates.shift();
-                            }
-                        }
-                    }
-                } 
-                
-
-                if (close > thresholdPrice) {
-                    upFractions.push((close - thresholdPrice) / thresholdPrice);
-                    upSyms.push(sym);
-                    trends += 1;
-                }
-                if (close < thresholdPrice) {
-                    downFractions.push((close - thresholdPrice) / thresholdPrice);
-                    downSyms.push(sym);
-                    reverses += 1;
-                }
-            } else if (diffFraction < 0) {
-                if (close > thresholdPrice) {
-                    reverses += 1;
-                }
-                if (close < thresholdPrice) {
-                    trends += 1;
-                }
-            }
-        }
-        if (symData.length > 10) {
-            // if (!highs[sym]) {
-            //     highs[sym] = Math.max(...symData.map(ele => ele.c));
-            // } else {
-                const thisMax = Math.max(...symData.map(ele => ele.c));
-                // if (thisMax > highs[sym]) {
-                    // highs[sym] = thisMax;
-                    todayHighs[sym] = thisMax;
-                // }
-            // }
-        }
-    });
-    highs = todayHighs;
-
-
-    const useFractions = [];
-    const newLastSymData = {};
-    candidates.forEach((candidateObj) => {
-        const useFraction = (candidateObj.close - candidateObj.thresholdPrice) / candidateObj.thresholdPrice;
-        useFractions.push(useFraction);
-        if (useFraction > 0) {
-            right += 1;
-        }
-        if (useFraction < 0) {
-            wrong += 1;
-        }
-
-        // EXP
-        newLastSymData[candidateObj.sym] = {
-            closePrice: candidateObj.close,
-            // closePrice: data[candidateObj.sym][data[candidateObj.sym].length - 1].c,
-            success: data[candidateObj.sym][data[candidateObj.sym].length - 1].c > candidateObj.thresholdPrice,
-            thresholdPrice: candidateObj.thresholdPrice
-        };
-        // END EXP
-
-
-        // for data guessing
-        const sym = candidateObj.sym;
-        const symData = allData[sym];
-        const checkFraction = 0.9;
-        const checkIdx = Math.floor(checkFraction * symData.length);
-        let max = 0;
-        for (let j = 0; j < checkIdx; j++) {
-            if (symData[j].c > max) {
-                max = symData[j].c;
-            }
-        }
-        const checkPrice = symData[checkIdx].c;
-        // if (candidateObj.thresholdPrice > candidateObj.actualThresholdPrice) {
-        if (checkPrice > 0.95 * max) {
-            if (candidateObj.close > checkPrice) {
-                upAfterMid += 1;
-            }
-            if (candidateObj.close < checkPrice) {
-                downAfterMid += 1;
-            }
-        }
-        // end data guessing
-
-    });
-    lastSymData = newLastSymData;
-    // console.log(candidates.map(ele => ele.sym));
-    // console.log(dateToRun, arrAve(useFractions));
-
-    
-    if (!modelSym || modelUp) {
-        allFractions.push(useFractions.length > 0 ? arrAve(useFractions) : 0);
-        if (useFractions.length > 0) {
-            amt *= (1 + arrAve(useFractions));
-            // const amts = [];
-            // for (let j = 0; j < 5; j++) {
-            //     if (useFractions[j]) {
-            //         amts.push((amt / 5) * (1 + useFractions[j]));
-            //     } else {
-            //         amts.push(amt / 5);
-            //     }
-            // }
-            // amt = 0;
-            // amts.forEach((n) => {
-            //     amt += n;
-            // });
-        }
-        if (arrAve(useFractions) > 0) {
-            upDays += 1;
-        }
-        if (arrAve(useFractions) < 0) {
-            downDays += 1;
-        }
     }
-    // console.log(amt, useFractions.length);
-    // console.log(amt, dateToRun, candidates.map(ele => ele.sym));
-    // console.log(amt, candidates.map((ele, i) => {
-    //     return {
-    //         sym: ele.sym,
-    //         ratio: useFractions[i],
-    //         threshold: ele.thresholdPrice,
-    //         close: ele.close,
-    //     }
-    // }));
-    console.log(amt);
 
-    // console.log(otherAmt);
-
+    let todayRatio = 1;
+    if (bestScores.length > 0) {
+        todayRatio = arrAve(bestScores.map(ele => ele.ratio));
+    }
+    console.log(bestScores.length);
+    amt *= todayRatio;
     amts.push(amt);
+
+    if (todayRatio > 1) {
+        upDays += 1;
+    }
+    if (todayRatio < 1) {
+        downDays += 1;
+    }
 }
 
 function eastern930Timestamp(dateStr) {

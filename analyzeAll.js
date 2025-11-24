@@ -4,8 +4,8 @@ const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 
-// const dates = datesToUse.slice(datesToUse.length - 20, datesToUse.length);
-const dates = datesToUse;
+const dates = datesToUse.slice(datesToUse.length - 100, datesToUse.length);
+// const dates = datesToUse;
 
 const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
@@ -30,11 +30,14 @@ const thresholdMins = params.thresholdMins;
 const minVol = params.minVolumeToUse;
 const minPrice = params.minPriceToUse;
 
-const nextBarOffset = 2;
+const nextBarOffset = 0;
 const takeProfit = 0.15;
 const stopLoss = 0.15;
 
-const onlyGain = true;          // every 5 minute interval up to threshold must be a gain
+// const takeProfit = false;
+// const stopLoss = false;
+
+const onlyGain = false;          // every 5 minute interval up to threshold must be a gain
 const increasingGain = false;   // every 5 minute interval up to threshold must be greater than previous
 const steadyGain = false;        // set to false or a number which is the fraction each gain must be within compared to last one
 const requiredUpFraction = params.upFraction;    // works well at 0.05 or 0.06
@@ -69,18 +72,6 @@ console.log("success next day down: " + successNextDayDowns);
 console.log("fail next day up: " + failNextDayUps);
 console.log("fail next day down: " + failNextDayDowns);
 
-let goodRun = 0;
-let badRun = 0;
-for (let i = 12; i < amts.length; i++) {
-    if (amts[i] > amts[i - 12]) {
-        goodRun += 1;
-    }
-    if (amts[i] < amts[i - 12]) {
-        badRun += 1;
-    }
-}
-console.log("good runs: " + goodRun);
-console.log("bad runs: " + badRun);
 // end main
 
 
@@ -90,39 +81,6 @@ function runDay(dateToRun, useNum) {
     
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
     const todayHighs = {};
-
-    // EXP
-    const otherUseFractions = [];
-    Object.keys(lastSymData).forEach((lastSym) => {
-        if (data[lastSym]) {
-            const yesterdayPrice = lastSymData[lastSym].closePrice;
-            const todayOpenPrice = data[lastSym][0].o;
-            const todaySellPrice = data[lastSym][data[lastSym].length - 1].c;
-            if (lastSymData[lastSym].success) {
-                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
-                if (todayOpenPrice > yesterdayPrice) {
-                    successNextDayUps += 1;
-                }
-                if (todayOpenPrice < yesterdayPrice) {
-                    successNextDayDowns += 1;
-                }
-            } else {
-                otherUseFractions.push(todaySellPrice / lastSymData[lastSym].thresholdPrice);
-                if (todayOpenPrice > yesterdayPrice) {
-                    failNextDayUps += 1;
-                }
-                if (todayOpenPrice < yesterdayPrice) {
-                    failNextDayDowns += 1;
-                }
-            }
-        } else {
-            // console.log(lastSym);
-        }
-    });
-    if (otherUseFractions.length > 0) {
-        otherAmt *= arrAve(otherUseFractions);
-    }
-    // END EXP
 
     // Object.keys(data).slice(1000, 1500).forEach((sym) => {
     Object.keys(data).forEach((sym) => {
@@ -153,21 +111,29 @@ function runDay(dateToRun, useNum) {
 
     let modelUp = false;
 
+    let useableSymCount = 0;
     syms.forEach((sym, i) => {
-        const symData = allData[sym];
+        const symDataTotal = allData[sym];
 
         // ------- new option: look at timestamps and verify if there are 5 bars before 10am
         const openingBellMs = eastern930Timestamp(dateToRun);
         const thresholdTimeMs = openingBellMs + (thresholdMins * 60000);
         let barCount = 0;
-        symData.forEach((bar) => {
+
+        let startIdx = false;
+        symDataTotal.forEach((bar, i) => {
+            // if (bar.t < thresholdTimeMs && bar.t > openingBellMs) {
             if (bar.t < thresholdTimeMs) {
                 barCount += 1;
+                if (!startIdx) {
+                    startIdx = i;
+                }
             }
         });
+        const symData = symDataTotal.slice(startIdx, symDataTotal.length);
         // allow 1 missing bar
-        if (barCount > (thresholdMins / params.minutesPerInterval) - 1) {
-
+        if (barCount > (thresholdMins / params.minutesPerInterval) - 1 && barCount < (thresholdMins / params.minutesPerInterval) + 2) {
+            useableSymCount += 1;
 
         // ------- old option: just require more than 70 bars to approximate having 4 or 5 before 10am
         // if (numBars > 70) {
@@ -203,17 +169,22 @@ function runDay(dateToRun, useNum) {
                 if (!closeToUse) {
                     closeToUse = close;
                     // closeToUse = symData[Math.floor(symData.length / 2)].c;
+                    // if (symData[thresholdIdx + 5]) {
+                    //     closeToUse = symData[thresholdIdx + 5].c;
+                    // } else {
+                    //     closeToUse = symData[symData.length - 1].c;
+                    // }
                 }
 
                 let checksPassed = true;
 
-                if (highs[sym]) {
-                    if (thresholdPrice > 1.5 * highs[sym]) {
-                        checksPassed = false;
-                    }
-                } else {
-                    checksPassed = false;
-                }
+                // if (highs[sym]) {
+                //     if (thresholdPrice > 1.5 * highs[sym]) {
+                //         checksPassed = false;
+                //     }
+                // } else {
+                //     checksPassed = false;
+                // }
                 
                 if (onlyGain) {
                     // if (symData[0].c < symData[0].o) {
@@ -269,6 +240,7 @@ function runDay(dateToRun, useNum) {
                         // ***** use set number *****
                         let stillGood = false;
                         if (Math.abs(1 - (nextBar.c / thresholdPrice)) < 0.05) {
+                        // if (nextBar.c / thresholdPrice > 1.1) {
                         // if (nextBar.c / thresholdPrice < 1.03) {
                             stillGood = true;
                         }
@@ -387,18 +359,6 @@ function runDay(dateToRun, useNum) {
         allFractions.push(useFractions.length > 0 ? arrAve(useFractions) : 0);
         if (useFractions.length > 0) {
             amt *= (1 + arrAve(useFractions));
-            // const amts = [];
-            // for (let j = 0; j < 5; j++) {
-            //     if (useFractions[j]) {
-            //         amts.push((amt / 5) * (1 + useFractions[j]));
-            //     } else {
-            //         amts.push(amt / 5);
-            //     }
-            // }
-            // amt = 0;
-            // amts.forEach((n) => {
-            //     amt += n;
-            // });
         }
         if (arrAve(useFractions) > 0) {
             upDays += 1;
@@ -419,6 +379,7 @@ function runDay(dateToRun, useNum) {
     // }));
     console.log(amt);
 
+    // console.log(useableSymCount);
     // console.log(otherAmt);
 
     amts.push(amt);

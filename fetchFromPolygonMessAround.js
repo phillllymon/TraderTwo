@@ -214,6 +214,7 @@ for (let i = 1; i < datesToUse.length; i++) {
 
             const numShares = (amt / 5.0) / close;
 
+            // if (true) {
             if (allSyms[sym]) {
                 // console.log(Number.parseFloat(allSyms[sym].margin_requirement_short));
                 // console.log(allSyms[sym])
@@ -223,14 +224,19 @@ for (let i = 1; i < datesToUse.length; i++) {
                     // if (close > 1.15 * yesterdayData[sym].c
                     if (close > 1.15 * open
                         && numShares < 0.02 * entry.v
-                        && yesterdayData[sym].v > 1000000
+                        && yesterdayData[sym].v > 100000
                         // && entry.v > 1000000
                         // && !allSyms[sym].easy_to_borrow
-                        && !allSyms[sym].name.toLowerCase().includes("quantum")
-                        && !allSyms[sym].name.toLowerCase().includes("lever")
+                        && (!allSyms[sym] || !allSyms[sym].name.toLowerCase().includes("quantum"))
+                        && (!allSyms[sym] || !allSyms[sym].name.toLowerCase().includes("lever"))
                         && !sym.includes("Q")
                         && !sym.includes("X")
+                        && !sym.includes("W")
                         && !sym.includes("LL")
+                        && !sym.includes("ZZ")
+                        && !sym.includes("NVA")
+                        && !sym.includes("HYPD")
+                        // && entry.l < 0.7 * entry.c
                         // && !allSyms[sym].name.toLowerCase().includes("2x")
                         // && close < symHighs[sym]
                         // && allSyms[sym].margin_requirement_short
@@ -304,8 +310,8 @@ for (let i = 1; i < datesToUse.length; i++) {
                 tradedSyms.push([sym, {
                     todayOpen: symObj.open,
                     todayClose: symObj.close,
-                    // requirement: allSyms[sym].name,
                     tomorrowOpen: lastDay ? "dunno" : tomorrowData[sym].o,
+                    // tomorrowOpen: lastDay ? "dunno" : todayData[sym].c,
                     tomorrowClose: lastDay ? "dunno" : tomorrowData[sym].c
                 }]);
                 if (!allTradedSyms.includes(sym)) {
@@ -314,7 +320,11 @@ for (let i = 1; i < datesToUse.length; i++) {
     
                 if (trade === "short" && !lastDay) {
                     // short next day open to close
+
+                    // const thisRatio = todayData[sym].c / tomorrowData[sym].o;
+                    // const thisRatio = todayData[sym].c / tomorrowData[sym].c;
                     const thisRatio = tomorrowData[sym].o / tomorrowData[sym].c;
+
                     // const thisRatio = todayData[sym].c / tomorrowData[sym].c;
                     thisDayRatios.push(thisRatio);
     
@@ -434,8 +444,8 @@ for (let i = 1; i < datesToUse.length; i++) {
         }
 
         amts.push(amt);
-        // console.log(amt, tradedSyms.map(ele => ele[0]));
-        console.log(amt);
+        console.log(amt, tradedSyms.map(ele => ele[0]));
+        // console.log(amt);
         ratios.push(tradeRatio);
     
         // if (tradeRatio > 1) {

@@ -38,8 +38,8 @@ let noGuessDays = 0;
 let amt = 100;
 const amts = [amt];
 
-const lookBack = 1;
-const numSymsToUse = 5;
+const lookBack = 10;
+const numSymsToUse = 10;
 
 const allSyms = combineAllSymsFiles(filesToUse);
 
@@ -67,7 +67,7 @@ for (let i = lookBack; i < datesToUse.length - 1; i++) {
                 && todayData[sym][0].c > 5
             ) {
                 if (thisData[sym] && prevData[sym]) {
-                    volatileScores[sym] += Math.abs((thisData[sym].c - prevData[sym].c) / thisData[sym].c);
+                    volatileScores[sym] += Math.abs((thisData[sym].c - thisData[sym].o) / thisData[sym].o);
                 }
             }
         });
@@ -79,7 +79,7 @@ for (let i = lookBack; i < datesToUse.length - 1; i++) {
     
     syms.forEach((sym) => {
         if (bestScores.length < numSymsToUse || volatileScores[sym] > bestScores[0].score) {
-            if (tomorrowData[sym] && todayData[sym] && yesterdayData[sym] && todayData[sym].c < todayData[sym].o) {
+            if (tomorrowData[sym] && todayData[sym] && yesterdayData[sym] && todayData[sym].c < 1.05 * todayData[sym].o) {
                 
                 bestScores.push({
                     score: volatileScores[sym],

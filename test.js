@@ -2,119 +2,246 @@ const { createSimpleDaysArr, dataArrToSymObj, arrAve, readDateData } = require("
 const fs = require("fs");
 const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
+const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 
-// const dates = datesToUse.slice(75, 175);
-// const dates = datesToUse.slice(datesToUse.length - 25, datesToUse.length);
-const dates = datesToUse;
+const dates = datesToUse.slice(datesToUse.length - 210, datesToUse.length);
+// const dates = datesToUse;
 
-const filesToUse = [
-    "allSyms",
-    "allSymsA",
-    "allSymsB",
-    "allSymsC",
-    "allSymsD",
-    "allSymsE",
-    "allSymsF",
-    "allSymsG"
-];
-const allSymsData = combineAllSymsFiles(filesToUse);
-// const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
+const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
-const codeLength = 3;
-const codeResults = {};
-const tradeRatioResults = {};
-
+// main
 let amt = 100;
 const amts = [amt];
+console.log(amt);
+const allFractions = [];
 
-dates.forEach((date, i) => {
-    console.log(`running day ${i} / ${dates.length}`);
-    runDay(date);
+let otherAmt = 100;
+
+let upDays = 0;
+let downDays = 0;
+
+let upAfterMid = 0;
+let downAfterMid = 0;
+
+const numSymsToUse = params.numSymsToUse;
+const modelSym = false;
+const thresholdMins = params.thresholdMins;
+
+const minVol = params.minVolumeToUse;
+const minPrice = params.minPriceToUse;
+
+const nextBarOffset = 1;
+const takeProfit = 0.15;
+const stopLoss = 0.15;
+
+const onlyGain = true;          // every 5 minute interval up to threshold must be a gain
+const increasingGain = false;   // every 5 minute interval up to threshold must be greater than previous
+const steadyGain = false;        // set to false or a number which is the fraction each gain must be within compared to last one
+const requiredUpFraction = params.upFraction;    // works well at 0.05 or 0.06
+
+let trends = 0;
+let reverses = 0;
+
+let right = 0;
+let wrong = 0;
+
+let lastSymData = {};
+let successNextDayUps = 0;
+let successNextDayDowns = 0;
+let failNextDayUps = 0;
+let failNextDayDowns = 0;
+
+let highs = {};
+
+dates.forEach((date) => {
+    runDay(date, numSymsToUse);
 });
 
-const results = [];
-Object.keys(codeResults).forEach((key) => {
-    results.push({
-        code: key,
-        up: codeResults[key].up,
-        down: codeResults[key].down,
-        ratio: codeResults[key].down > 0 ? codeResults[key].up / codeResults[key].down : codeResults[key].up,
-        tradeRatio: arrAve(tradeRatioResults[key])
-    })
-});
-results.sort((a, b) => {
-    if (a.ratio > b.ratio) {
-        return 1;
-    } else {
-        return -1;
+console.log("total days: " + dates.length);
+console.log("up days: " + upDays);
+console.log("down days: " + downDays);
+// console.log(allFractions);
+console.log(arrAve(allFractions), Math.max(...allFractions), Math.min(...allFractions));
+console.log("right: " + right);
+console.log("wrong: " + wrong);
+console.log("success next day up: " + successNextDayUps);
+console.log("success next day down: " + successNextDayDowns);
+console.log("fail next day up: " + failNextDayUps);
+console.log("fail next day down: " + failNextDayDowns);
+
+let goodRun = 0;
+let badRun = 0;
+for (let i = 12; i < amts.length; i++) {
+    if (amts[i] > amts[i - 12]) {
+        goodRun += 1;
     }
-});
-console.log(results);
+    if (amts[i] < amts[i - 12]) {
+        badRun += 1;
+    }
+}
+console.log("good runs: " + goodRun);
+console.log("bad runs: " + badRun);
+// end main
 
-amts.forEach((n) => {
-    console.log(n);
-});
 
-
-
-function runDay(dateToRun) {
+function runDay(dateToRun, useNum) {
+    const allData = {};
+    const syms = [];
+    
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
-    const allSyms = Object.keys(data);
+    const todayHighs = {};
 
-    const dayTradeRatios = [];
-
-    allSyms.forEach((sym) => {
-        const symData = data[sym];
-        if (
-            symData.length === 79 
-            && symData[0].c > 1 
-            && symData[0].c < 2 
-            && symData[0].v > 5000
-            && symData[codeLength].c > 1.005 * symData[0].c
-        ) {
-            const codeArr = [];
-            for (let i = 1; i < codeLength + 1; i++) {
-                const prevBar = symData[i - 1];
-                const thisBar = symData[i];
-                if (thisBar.c > prevBar.c) {
-                    codeArr.push(1);
-                } else {
-                    codeArr.push(0);
-                }
-            }
-            const buyPrice = symData[codeLength].c;
-            const sellPrice = symData[symData.length - 1].c;
-            // const sellPrice = symData[codeLength + 1].c;
-            const code = codeArr.join("-");
-            if (!codeResults[code]) {
-                codeResults[code] = { up: 0, down: 0 };
-            }
-            if (sellPrice > buyPrice) {
-                codeResults[code].up += 1;
-            }
-            if (sellPrice < buyPrice) {
-                codeResults[code].down += 1;
-            }
-            if (!tradeRatioResults[code]) {
-                tradeRatioResults[code] = [];
-            }
-            tradeRatioResults[code].push(sellPrice / buyPrice);
-
-            const codesToUse = [
-                "1-1-0",
-            ];
-
-            if (codesToUse.includes(code)) {
-                dayTradeRatios.push(sellPrice / buyPrice);
+    // Object.keys(data).slice(1000, 1500).forEach((sym) => {
+    Object.keys(data).forEach((sym) => {
+        const thisData = data[sym];
+        // if (thisData.length > 50) {
+        if (thisData.length > 3) {
+            if (
+                true
+                && thisData[0].o > minPrice
+                // && thisData[0].v > 1000
+                && thisData[0].v + thisData[1].v + thisData[2].v + thisData[3].v > minVol
+                // && thisData[0].c < 20 
+                // && thisData[0].v * thisData[0].c > 1000
+            ) {
+                allData[sym] = data[sym];
+                syms.push(sym);
             }
         }
     });
 
-    const todayRatio = dayTradeRatios.length > 0 ? arrAve(dayTradeRatios) : 1;
-    amt *= todayRatio;
+    const upFractions = [];
+    const downFractions = [];
+
+    const upSyms = [];
+    const downSyms = [];
+
+    const candidates = [];
+
+    let modelUp = false;
+
+    let useableSymCount = 0;
+    syms.forEach((sym, i) => {
+        const symDataTotal = allData[sym];
+        
+
+        // ------- new option: look at timestamps and verify if there are 5 bars before 10am
+        const openingBellMs = eastern930Timestamp(dateToRun);
+        const thresholdTimeMs = openingBellMs + (thresholdMins * 60000);
+        let barCount = 0;
+        let preBarCount = 0;
+
+        let startIdx = false;
+        symDataTotal.forEach((bar, i) => {
+            // if (bar.t < thresholdTimeMs && bar.t > openingBellMs) {
+            // if (bar.t < thresholdTimeMs) {
+            if (bar.t > openingBellMs - 1) {
+                barCount += 1;
+                if (!startIdx) {
+                    startIdx = i;
+                }
+            } else {
+                preBarCount += 1;
+            }
+        });
+
+        if (sym === "GOOG") {
+
+            console.log(preBarCount, barCount, dateToRun);
+        }
+
+        const symData = symDataTotal.slice(startIdx, symDataTotal.length);
+        // allow 1 missing bar
+        
+        
+    });
+    highs = todayHighs;
+
+
+    const useFractions = [];
+    const newLastSymData = {};
+    candidates.forEach((candidateObj) => {
+        const useFraction = (candidateObj.close - candidateObj.thresholdPrice) / candidateObj.thresholdPrice;
+        useFractions.push(useFraction);
+        if (useFraction > 0) {
+            right += 1;
+        }
+        if (useFraction < 0) {
+            wrong += 1;
+        }
+
+        // EXP
+        newLastSymData[candidateObj.sym] = {
+            closePrice: candidateObj.close,
+            // closePrice: data[candidateObj.sym][data[candidateObj.sym].length - 1].c,
+            success: data[candidateObj.sym][data[candidateObj.sym].length - 1].c > candidateObj.thresholdPrice,
+            thresholdPrice: candidateObj.thresholdPrice
+        };
+        // END EXP
+
+
+        // for data guessing
+        const sym = candidateObj.sym;
+        const symData = allData[sym];
+        const checkFraction = 0.9;
+        const checkIdx = Math.floor(checkFraction * symData.length);
+        let max = 0;
+        for (let j = 0; j < checkIdx; j++) {
+            if (symData[j].c > max) {
+                max = symData[j].c;
+            }
+        }
+        const checkPrice = symData[checkIdx].c;
+        // if (candidateObj.thresholdPrice > candidateObj.actualThresholdPrice) {
+        if (checkPrice > 0.95 * max) {
+            if (candidateObj.close > checkPrice) {
+                upAfterMid += 1;
+            }
+            if (candidateObj.close < checkPrice) {
+                downAfterMid += 1;
+            }
+        }
+        // end data guessing
+
+    });
+    lastSymData = newLastSymData;
+    // console.log(candidates.map(ele => ele.sym));
+    // console.log(dateToRun, arrAve(useFractions));
+
+    
+    if (!modelSym || modelUp) {
+        allFractions.push(useFractions.length > 0 ? arrAve(useFractions) : 0);
+        if (useFractions.length > 0) {
+            amt *= (1 + arrAve(useFractions));
+        }
+        if (arrAve(useFractions) > 0) {
+            upDays += 1;
+        }
+        if (arrAve(useFractions) < 0) {
+            downDays += 1;
+        }
+    }
+    // console.log(amt, useFractions.length);
+    // console.log(amt, dateToRun, candidates.map(ele => ele.sym));
+    // console.log(amt, candidates.map((ele, i) => {
+    //     return {
+    //         sym: ele.sym,
+    //         ratio: useFractions[i],
+    //         threshold: ele.thresholdPrice,
+    //         close: ele.close,
+    //     }
+    // }));
+    // console.log(amt);
+
+    // console.log(useableSymCount);
+    // console.log(otherAmt);
+
     amts.push(amt);
-    console.log(amt, todayRatio);
 }
+
+// console.log("***********");
+// console.log(new Date(eastern930Timestamp("2025-11-12")));
+// console.log("***********");
 
 function eastern930Timestamp(dateStr) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
@@ -156,24 +283,4 @@ function eastern930Timestamp(dateStr) {
   
     // adjust to the target timezone instant
     return systemLocal930Ms + offset;
-}
-
-function combineAllSymsFiles(filesToUse) {
-    const symsObj = {};
-    for (let i = 0; i < filesToUse.length; i++) {
-        const arr = JSON.parse(fs.readFileSync(`./data/${filesToUse[0]}.txt`));
-        arr.forEach((entry) => {
-            if (!symsObj[entry.symbol]) {
-                symsObj[entry.symbol] = entry;
-            } else {
-                if (entry.shortable) {
-                    symsObj[entry.symbol].shortable = true;
-                }
-                if (entry.easy_to_borrow) {
-                    symsObj[entry.symbol].easy_to_borrow = true;
-                }
-            }
-        });
-    }
-    return symsObj;
 }

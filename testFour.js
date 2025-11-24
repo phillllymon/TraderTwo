@@ -4,8 +4,8 @@ const { params } = require("./buyParams");
 const { datesToUse } = require("./datesToUse");
 
 // const dates = datesToUse.slice(75, 100);
-// const dates = datesToUse.slice(datesToUse.length - 25, datesToUse.length);
-const dates = datesToUse;
+const dates = datesToUse.slice(datesToUse.length - 50, datesToUse.length);
+// const dates = datesToUse;
 
 const filesToUse = [
     "allSyms",
@@ -21,7 +21,8 @@ const allSymsData = combineAllSymsFiles(filesToUse);
 // const allSymsData = dataArrToSymObj(JSON.parse(fs.readFileSync("./data/allSyms.txt")), "symbol");
 
 const allTradeRatios = [];
-
+let upDays = 0;
+let downDays = 0;
 
 let amt = 100;
 const amts = [amt];
@@ -38,70 +39,165 @@ amts.forEach((n) => {
 console.log("***************");
 console.log("trades: " + allTradeRatios.length);
 console.log("ave trade ratio: " + arrAve(allTradeRatios));
+console.log("up days: " + upDays);
+console.log("down days: " + downDays);
 
 
 
 function runDay(dateToRun) {
+    amt = 100;
+    let netGain = 0;
     const data = JSON.parse(fs.readFileSync(`./data/daysCompleteFiveMinutes/${dateToRun}-0-11000.txt`));
     const allSyms = Object.keys(data);
-    const symsToUse = [];
     const dayTradeRatios = [];
+    const maxHoldLength = 3;
+    const numSymsToUse = 5;
+    
+    let openSlots = numSymsToUse;
+    let own = [];
+    let ownInfo = {};
 
+    const timeStampChart = {};
     allSyms.forEach((sym) => {
-        const symData = data[sym];
-        if (
-            symData.length === 79 
-            && symData[0].o > 1
-            // && symData[0].o < 2 
-            && symData[0].v > 50000
-        ) {
-            symsToUse.push(sym);
+        // console.log(sym);
+        if (data[sym] && sym !== "date") {
+            if (true
+                && data[sym][0].c > 5
+                && data[sym][0].v > 5000
+            ) {
+                data[sym].forEach((bar) => {
+                    if (!timeStampChart[bar.t]) {
+                        timeStampChart[bar.t] = {};
+                    }
+                    timeStampChart[bar.t][sym] = bar;
+                });
+            }
+        }
+    });
+    const timeStamps = Object.keys(timeStampChart).sort((a, b) => {
+        if (a > b) {
+            return 1;
+        } else {
+            return -1;
         }
     });
 
-    let own = false;
-    let boughtPrice = false;
-    let boughtIdx = 0;
-
-    for (let i = 2; i < 79; i++) {
-        if (own) {
-            if (i > boughtIdx + 3 || data[own][i].c > 1.025 * boughtPrice) {
-                const sellPrice = data[own][i].c;
-                const tradeRatio = sellPrice / boughtPrice;
-                amt *= tradeRatio;
-                own = false;
-                allTradeRatios.push(tradeRatio);
-                // console.log(amt);
-            }
+    for (let i = 1; i < timeStamps.length - maxHoldLength; i++) {
+        const thisStamp = timeStamps[i];
+        if (own.length > 0) {
+            own.forEach((sym) => {
+                const boughtIdx = ownInfo[sym].boughtIdx;
+                const boughtPrice = ownInfo[sym].boughtPrice;
+                if (i > boughtIdx + maxHoldLength - 1 || timeStampChart[thisStamp][sym].c > 1.025 * boughtPrice || i  === timeStamps.length - maxHoldLength - 1) {
+                    // console.log("SELL WAVE " + i);
+                    const sellPrice = timeStampChart[thisStamp][sym].c;
+                    const revenue = sellPrice * ownInfo[sym].numShares;
+                    const tradeRatio = sellPrice / boughtPrice;
+                    // console.log(revenue - ownInfo[sym].cost);
+                    netGain += 1;
+                    // netGain -= ownInfo[sym].cost;
+                    allTradeRatios.push(tradeRatio);
+                    amt += revenue;
+                    amt -= ownInfo[sym].cost;
+                    ownInfo[sym].sold = true;
+                }
+            });
+            const newOwn = [];
+            const newOwnInfo = {};
+            Object.keys(ownInfo).forEach((sym) => {
+                if (!ownInfo[sym].sold) {
+                    newOwn.push(sym);
+                    newOwnInfo[sym] = ownInfo[sym];
+                }
+            });
+            own = newOwn;
+            ownInfo = newOwnInfo;
         }
-        if (!own && i < 75) {
-            let symToTrade = false;
-            let biggestDrop = 0;
+        const numOwned = own.length;
+        openSlots = numSymsToUse - numOwned;
+        if (openSlots > 0 && i < timeStamps.length - maxHoldLength) {
+            
+            const symsToUse = [];
+            allSyms.forEach((sym) => {
+                let useSym = true;
+                for (let j = i - 1; j < i + maxHoldLength + 1; j++) {
+                    if (!timeStampChart[timeStamps[j]] || !timeStampChart[timeStamps[j]][sym]) {
+                        useSym = false;
+                    }
+                }
+                if (useSym) {
+                    symsToUse.push(sym);
+                }
+                
+            });
+
+            const symsToTrade = [];
+
             symsToUse.forEach((sym) => {
-                const prevPrice = data[sym][i - 1].c;
-                const thisPrice = data[sym][i].c;
-                if (thisPrice < prevPrice) {
-                    const thisDrop = prevPrice - thisPrice;
-                    if (thisDrop > biggestDrop 
-                        // && prevPrice / thisPrice > 1.05 
-                        // && prevPrice / thisPrice < 1.02
-                        && data[sym][i - 1].c < data[sym][i - 2].c
-                        && data[sym][i].c < 0.8 * data[sym][0].o
-                    ) {
-                        biggestDrop = thisDrop;
-                        symToTrade = sym;
+                const prevPrice = timeStampChart[timeStamps[i - 1]][sym].c;
+                const thisPrice = timeStampChart[timeStamps[i]][sym].c;
+                if (thisPrice < prevPrice && !own.includes(sym)) {
+                    if (prevPrice / thisPrice > 1.00) {
+                        if (symsToTrade.length < openSlots || prevPrice / thisPrice > symsToTrade[0].dropRatio) {
+                            symsToTrade.push({
+                                sym: sym,
+                                dropRatio: prevPrice / thisPrice
+                            });
+                            symsToTrade.sort((a, b) => {
+                                if (a.dropRatio > b.dropRatio) {
+                                    return 1;
+                                } else {
+                                    return -1;
+                                }
+                            });
+                            while (symsToTrade.length > openSlots) {
+                                symsToTrade.shift();
+                            }
+                        }
                     }
                 }
             });
-            if (symToTrade) {
-                own = symToTrade;
-                boughtPrice = data[symToTrade][i].c;
-                boughtIdx = i;
+            if (symsToTrade.length > 0 && i < timeStamps.length - maxHoldLength - 1) {
+                // const amtToTrade = amt / symsToTrade.length;
+                const amtToTrade = 1.0 * amt / openSlots;
+                // console.log(openSlots);
+                symsToTrade.forEach((symObj) => {
+                    const sym = symObj.sym;
+                    const boughtPrice = timeStampChart[timeStamps[i]][sym].c;
+                    const numShares = Math.floor(amtToTrade / boughtPrice);
+                    const cost = numShares * boughtPrice;
+                    // console.log("*****************");
+                    // console.log(amt);
+                    // amt -= cost;
+                    // console.log(amt);
+                    // console.log(cost);
+                    // console.log("*****************");
+                    netGain -= 1;
+                    own.push(sym);
+                    ownInfo[sym] = {
+                        boughtPrice: boughtPrice,
+                        boughtIdx: i,
+                        numShares: numShares,
+                        cost: cost,
+                        sold: false
+                    }
+                });
             }
         }
     }
-
-    amts.push(amt);
+    // console.log(own);
+    console.log(amt);
+    // console.log(netGain);
+    
+    const dayRatio = amt / 100;
+    if (dayRatio > 1) {
+        upDays += 1;
+    }
+    if (dayRatio < 1) {
+        downDays += 1;
+    }
+    amts.push(dayRatio * amts[amts.length - 1]);
+    // amts.push(amt);
 }
 
 function eastern930Timestamp(dateStr) {

@@ -67,13 +67,15 @@ fetchDataForDate(dateToUse, minPriceToUse, minVolumeToUse).then((data) => {
         const thresholdTimeMs = openingBellMs + (thresholdMins * 60000);
         let barCount = 0;
         symData.forEach((bar) => {
-            if (bar.t < thresholdTimeMs) {
+            if (bar.t < thresholdTimeMs && bar.t > openingBellMs) {
                 barCount += 1;
             }
         });
         
         // allow 1 missing bar
-        if (barCount > (thresholdMins / 5) - 1) {
+        console.log(barCount);
+        // if (barCount > (thresholdMins / 5) - 1) {
+        if (barCount > (thresholdMins / 5) - 2 && barCount < (thresholdMins / 5) + 2) {
 
             const openPrice = symData[0].o;
             // const thresholdIdx = Math.floor(thresholdMins / minutesPerBar);
@@ -173,7 +175,8 @@ function fetchDataForDate(date, minPrice = 0, minVol = 0) {
                 }
             });
         
-            fetchDateDataForSymsRecursive(date, symsToUse, 0).then((dateData) => {
+            fetchDateDataForSymsSemiRecursive(date, symsToUse, 0).then((dateData) => {
+            // fetchDateDataForSymsRecursive(date, symsToUse, 0).then((dateData) => {
                 resolve(dateData);
             });
         });
@@ -201,6 +204,59 @@ function fetchDateDataForSymsRecursive(date, syms, i, dataSoFar) {
             console.log("done with syms");
             resolve(dataSoFar);
         }
+    });
+}
+
+function fetchDateDataForSymsSemiRecursive(date, syms, i, dataSoFar) {
+    const numSymsToBundle = 50;
+    return new Promise((resolve) => {
+        if (!dataSoFar) {
+            dataSoFar = {};
+        }
+
+        const symsToUse = syms.slice(i, i + numSymsToBundle);
+        if (symsToUse.length > 0) {
+            const thisDataSoFar = [];
+            let nDone = 0;
+            symsToUse.forEach((sym) => {
+                fetchMinutelyOneDayOneSym(sym, date, minutesPerInterval).then((data) => {
+                    if (data) {
+                        thisDataSoFar.push([sym, data]);
+                    }
+                    nDone += 1;
+                    if (nDone === symsToUse.length) {
+                        console.log(`${i} / ${syms.length}`);
+                        thisDataSoFar.forEach((dataPair) => {
+                            dataSoFar[dataPair[0]] = dataPair[1];
+                        });
+                        fetchDateDataForSymsSemiRecursive(date, syms, i + numSymsToBundle, dataSoFar).then(() => {
+                            resolve(dataSoFar);
+                        });
+                    }
+                });
+            });
+        } else {
+            console.log("done with syms");
+            resolve(dataSoFar);
+        }
+
+        // old
+        // const sym = syms[i];
+        // if (sym) {
+        //     fetchMinutelyOneDayOneSym(sym, date, minutesPerInterval).then((data) => {
+        //         if (data) {
+        //             dataSoFar[sym] = data;
+        //             console.log(`sym ${i} / ${syms.length}`);
+        //         }
+        //         dataSoFar["date"] = date;
+        //         fetchDateDataForSymsRecursive(date, syms, i + 1, dataSoFar).then(() => {
+        //             resolve(dataSoFar);
+        //         });
+        //     })
+        // } else {
+        //     console.log("done with syms");
+        //     resolve(dataSoFar);
+        // }
     });
 }
 
