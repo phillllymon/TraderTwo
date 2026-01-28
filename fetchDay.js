@@ -34,7 +34,7 @@ function fetchDay(theSyms, startTime, endTime, pageToken = false, barsSoFar) {
                                 open: rawBar.o,
                                 high: rawBar.h,
                                 low: rawBar.l,
-                                vol: rawBar.n
+                                vol: rawBar.v
                             };
                         }));
                     }
@@ -57,7 +57,7 @@ function queryDays(syms, daysArr, i, daysSoFar) {
     if (!i) {
         i = 0;
     }
-    console.log("fetching " + i + " / " + daysArr.length);
+    // console.log("fetching " + i + " / " + daysArr.length);
     return new Promise((resolve) => {
         if (!daysSoFar) {
             daysSoFar = [];

@@ -257,7 +257,7 @@ function hasStartParams(params) {
     return answer;
 }
 
-module.exports = { fetchDays, fetchDaysAllStocks };
+module.exports = { fetchDays, fetchDaysAllStocks, retrieveAllSymbols };
 
 fetch("https://us.etrade.com/webapitrd/stockorder/previewtsp.json", {
     method: "POST",

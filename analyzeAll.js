@@ -151,12 +151,23 @@ function runDay(dateToRun, useNum) {
             const closeBar = symData[symData.length - 1];
             const open = openBar.o;
             const close = closeBar.c;
-            const thresholdPrice = thresholdBar.c;
+            const thresholdPrice = thresholdBar ? thresholdBar.c : undefined;
             const diffFraction = (thresholdPrice - open) / open;
-            if (diffFraction > requiredUpFraction) {
+            if (diffFraction > requiredUpFraction && thresholdBar && closeBar) {
             // if (diffFraction < 0) {     // use smallest instead
                 
                 let closeToUse = false;
+                let peak = open;
+
+                const closeBars = symData.slice(thresholdIdx, symData.length);
+                closeBars.forEach((bar) => {
+                    peak = Math.max(peak, bar.c);
+                    const trailStop = 0.90 * peak;
+                    if (!closeToUse && bar.c <= trailStop) {
+                        closeToUse = trailStop;
+                    }
+                });
+
                 for (let j = thresholdIdx; j < symData.length; j++) {
                     const thisBar = symData[j];
                     if (!closeToUse && stopLoss && thisBar.c < thresholdPrice * (1 - stopLoss)) {
@@ -168,12 +179,6 @@ function runDay(dateToRun, useNum) {
                 }
                 if (!closeToUse) {
                     closeToUse = close;
-                    // closeToUse = symData[Math.floor(symData.length / 2)].c;
-                    // if (symData[thresholdIdx + 5]) {
-                    //     closeToUse = symData[thresholdIdx + 5].c;
-                    // } else {
-                    //     closeToUse = symData[symData.length - 1].c;
-                    // }
                 }
 
                 let checksPassed = true;

@@ -3,6 +3,19 @@ const fs = require("fs");
 const { CREDS } = require("./CREDS");
 const { params } = require("./buyParams");
 
+
+fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=${CREDS.polygonKey}`).then((res) => {
+    res.json().then((r) => {
+        r.tickers.forEach((info) => {
+            if (info.ticker === "SMX") {
+                console.log(info);
+            }
+        });
+    });
+});
+
+/*
+
 const numToUse = 15;
 
 const requiredUpFraction = 0.1;
@@ -36,3 +49,5 @@ fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKe
         console.log (candidates.slice(0, numToUse).map(ele => ele.sym));
     });
 });
+
+*/
