@@ -25,8 +25,11 @@ function fetchDay(theSyms, startTime, endTime, pageToken = false, barsSoFar) {
             }
         }).then((res) => {
             res.json().then((r) => {
+                if (r.message) {
+                    console.log(r.message);
+                }
                 theSyms.forEach((sym) => {
-                    if (r.bars[sym]) {
+                    if (r.bars && r.bars[sym]) {
                         barsSoFar[sym].push(...r.bars[sym].map((rawBar) => {
                             return {
                                 time: rawBar.t,
@@ -37,6 +40,8 @@ function fetchDay(theSyms, startTime, endTime, pageToken = false, barsSoFar) {
                                 vol: rawBar.v
                             };
                         }));
+                    } else {
+                        // console.log("bad sym: " + sym);
                     }
                 });
 

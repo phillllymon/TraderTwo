@@ -485,6 +485,16 @@ function nyLocalToUtcMs(dateStr, hour, minute, second = 0) {
     return t;
 }
 
+function arrCount(arr, func) {
+    let answer = 0;
+    arr.forEach((ele) => {
+        if (func(ele)) {
+            answer += 1;
+        }
+    });
+    return answer;
+}
+
 module.exports = {
     readDateData,
     createFractionMap,
@@ -506,5 +516,6 @@ module.exports = {
     standardDeviation,
     getMovingAverage,
     arrMedian,
+    arrCount,
     nyLocalToUtcMs
 };

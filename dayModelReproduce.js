@@ -20,19 +20,19 @@ const minPrice = 5;
 // const minDayVol = 50000000;
 // const minDayVol = 2000000;
 const minDayVol = 2000000;
-const minEarlyVol = 4000000;
+const minEarlyVol = 2000000;
 const useTopNum = 2;
 
 const earlyRetThreshold = 1.2;
 
-const startDate = "2025-01-02";
+// const startDate = "2025-01-02";
 // const endDate = "2025-05-08";
 
-// const startDate = "2025-10-23";
-// const endDate = "2025-11-04";
+// const startDate = "2025-08-02";
+// const endDate = "2025-11-01";
 
-// const startDate = "2025-11-04";
-const endDate = "2026-01-28";
+const startDate = "2025-11-03";
+const endDate = "2026-01-30";
 
 const dates = getJustWeekdays(createSimpleDaysArr(startDate, endDate));
 console.log(dates);
@@ -62,8 +62,8 @@ const tradeIdxSpreads = [];
 
 let scores = [];
 let results = [];
-const report = "scoresResults";
-// const report = "bins";
+// const report = "scoresResults";
+const report = "bins";
 // const report = "regOrHighs";
 
 const highPerformingPres = [];
@@ -71,10 +71,14 @@ const regularPres = [];
 
 const dataRun = "A";
 
+const displayData = [];
+
 main();
 
 function main() {
     runDatesRecursive(dates, 0).then(() => {
+        writeDisplayData();
+
         amts.forEach((n) => {
             console.log(n);
         });
@@ -107,14 +111,14 @@ function main() {
         console.log("*************************");
         console.log("***** results below *****");
         console.log("*************************");
-        // resultsToReport.forEach((n) => console.log(n));
+        resultsToReport.forEach((n) => console.log(n));
         // results.forEach((n) => console.log(n));
         // resultAves.forEach((n) => console.log(n));
         // highAves.forEach((n) => console.log(n * n * n));
         console.log("************************");
         console.log("***** scores below *****");
         console.log("************************");
-        // scoresToReport.forEach((n) => console.log(n));
+        scoresToReport.forEach((n) => console.log(n));
         // scores.forEach((n) => console.log(n));
         // scoreBins.forEach((n) => console.log(n));
         // regularAves.forEach((n) => console.log(n * n * n));
@@ -218,12 +222,52 @@ function runDay(date) {
     
                         let buyPrice = false;
                         let buyIdx = false;
+                        let sellIdx = false;
                         let sellPrice = false;
+                        const buyScores = [];
+                        const buyScoreRatios = [];
+                        const buyScoreRatioRsis = [];
+                        const volPriceRatios = [];
+                        const maxPriceFractions = [];
+
+                        let maxPriceToDate = false;
+                        let minPriceToDate = false;
+                        let maxVolToDate = false;
+                        let maxBuyScoreToDate = false;
+                        let minBuyScoreToDate = false;
+                        let priceAtMaxVol = false;
+                        let maxVolPrice = false;
+
+                        symObj.preBars.forEach((bar) => {
+                            const volPrice = bar.v / (bar.h / bar.l);
+                            if (!maxVolPrice || volPrice > maxVolPrice) {
+                                maxVolPrice = volPrice;
+                                priceAtMaxVol = bar.c;
+                            }
+                            // if (!maxPriceToDate || bar.c > maxPriceToDate) {
+                            //     maxPriceToDate = bar.c;
+                            // }
+                            if (!maxVolToDate || bar.v > maxVolToDate) {
+                                maxVolToDate = bar.v;
+                            }
+                        });
 
                         // buyPrice = symObj.preBars[symObj.preBars.length - 1].c;
 
                         const rsis = [];
                         symObj.postBars.forEach((bar, i) => {
+
+                            if (!maxPriceToDate || bar.c > maxPriceToDate) { maxPriceToDate = bar.c; }
+                            if (!minPriceToDate || bar.c < minPriceToDate) { minPriceToDate = bar.c; }
+                            if (!maxVolToDate || bar.v > maxVolToDate) {
+                                maxVolToDate = bar.v;
+                            }
+                            const volPrice = (bar.v / maxVolToDate) / (bar.h / bar.l);
+                            if (!maxVolPrice || volPrice > maxVolPrice) {
+                                maxVolPrice = volPrice;
+                                priceAtMaxVol = bar.c;
+                            }
+
                             const sampleLength = 20;
                             const preBarsNeeded = sampleLength - i;
                             let sampleBars;
@@ -240,6 +284,9 @@ function runDay(date) {
                             const rsiRsi = calculateRSI(rsis);
                             const movingAve = arrAve(sampleBars.slice(sampleBars.length - 15, sampleBars.length).map(ele => ele.c));
                             const movingAveRatio = movingAve / bar.c;
+
+                            const movingAveVol = arrAve(sampleBars.slice(sampleBars.length - 15, sampleBars.length).map(ele => ele.v));
+                            const movingAveVolRatio = movingAve / bar.v;
     
                             const stDevRatio = standardDeviation(sampleBars.map(ele => ele.c)) / bar.c;
     
@@ -252,13 +299,45 @@ function runDay(date) {
                             const sellScore = movingAveRatio * bollingerPos * rsi;
     
                             const buyScore = movingAveRatio * bollingerPos;
+                            buyScores.push(buyScore);
+
+                            if (!maxBuyScoreToDate || buyScore > maxBuyScoreToDate) { maxBuyScoreToDate = buyScore; }
+                            if (!minBuyScoreToDate || buyScore < minBuyScoreToDate) { minBuyScoreToDate = buyScore; }
+
+                            let buyScorePos = (buyScore - minBuyScoreToDate) / (maxBuyScoreToDate - minBuyScoreToDate);
+                            if (Number.isNaN(buyScorePos)) { buyScorePos = 0.5; }
+                            let pricePos = (bar.c - minPriceToDate) / (maxPriceToDate - minPriceToDate);
+                            if (Number.isNaN(pricePos)) { pricePos = 0.5; }
+
+                            const buyScoreRatio = buyScorePos * pricePos;
+                            buyScoreRatios.push(buyScoreRatio);
+                            let buyScoreRatioRsi = 50;
+                            if (buyScoreRatios.length > 13) {
+                                buyScoreRatioRsi = calculateRSI(buyScoreRatios.slice(buyScoreRatios.length - 14, buyScoreRatios.length));
+                            }
+                            buyScoreRatioRsis.push(buyScoreRatioRsi);
+
+                            const maxPriceFraction = (bar.c - minPriceToDate) / (maxPriceToDate - minPriceToDate);
+                            maxPriceFractions.push(maxPriceFraction);
+
+                            
                             if (!buyPrice
-                                // && rsi < 30
+                                // && rsi < 10
                                 // && movingAveRatio < 0.95
                                 // && rsiRsi > 50
                                 // && bollingerPos < 0
-                                && buyScore < -0.25 && buyScore > -0.5
+                                // && buyScore < -0.25 && buyScore > -0.5
+                                // && bollingerPos < -0.15 || bollingerPos > 1.4
+                                // && buyScoreRatioRsi < 20
                                 // && buyScore > 100
+                                // && (bar.c / priceAtMaxVol > 0.75 && bar.c / priceAtMaxVol < 1)
+                                // && volPrice > 0.5
+                                && maxPriceFraction < 0.1
+                                // && (movingAveVol / maxVolToDate < 0.25)
+                                // && (upper / lower > 1.25 && upper / lower < 1.75)
+                                && i < symObj.postBars.length - 5
+                                && i > 25
+                                // && i > 14
                             ) {
                                 buyPrice = bar.c;
                                 buyIdx = i;
@@ -266,56 +345,73 @@ function runDay(date) {
     
                             // ------- temp to zero in on best buy price
                             // if (buyPrice && !sellPrice) {
-                            //     const maxSellPrice = Math.max(...symObj.postBars.slice(i, symObj.postBars.length).map(ele => ele.h));
+                            //     const remainingBars = symObj.postBars.slice(i + 1, symObj.postBars.length);
+                            //     const maxSellPrice = Math.max(...remainingBars.map(ele => ele.h));
+                            //     sellIdx = i + remainingBars.map(ele => ele.h).indexOf(maxSellPrice);
                             //     sellPrice = maxSellPrice;
-
-                            //     scores.push(symObj.earlyRet);
-                            //     results.push(sellPrice / buyPrice);
                             // }
                             // ------- end temp
+
+                            
     
-                            // if (buyPrice && !sellPrice
-                            //     && (sellScore > 85 || stDevRatio > 0.02)
-                            //     // && bar.c > buyPrice
-                            //     // && score > 0.2
-                            // ) {
-                            //     sellPrice = bar.c;
-                            //     tradeIdxSpreads.push(i - buyIdx);
-                            //     triggerSales += 1;
-                            //     triggerSaleRatios.push(sellPrice / buyPrice);
+                            volPriceRatios.push(volPrice / maxVolPrice);
+                            if (buyPrice && i < symObj.postBars.length - 2) {
+                                scores.push(maxPriceFraction);
+                                // scores.push(movingAveVol / maxVolToDate);
+                                // results.push(Math.max(...symObj.postBars.slice(i + 1, symObj.postBars.length).map(ele => ele.h)) / bar.c);
+                                results.push(bar.c / buyPrice);
+                            }
+
+                            if (buyPrice && !sellPrice && i > buyIdx
+                                // && (bar.c / priceAtMaxVol > 1.0)
+                                && maxPriceFraction > 0.75
+                                // && (buyScoreRatio > 0.55 && buyScoreRatio < 0.75)
+                                // && (bollingerPos < -0.15 || bollingerPos > 1.4)
+                                // && bar.c > buyPrice
+                                // && score > 0.2
+                            ) {
+                                sellPrice = bar.c;
+                                tradeIdxSpreads.push(i - buyIdx);
+                                triggerSales += 1;
+                                triggerSaleRatios.push(sellPrice / buyPrice);
+                            }
+    
+                            // const takeProfit = (1.01 * (1 + ((symObj.earlyRet - 1) / 10)));
+                            // const takeProfit = 1.01;
+                            // if (buyPrice && !sellPrice && i > buyIdx && bar.h > buyPrice * takeProfit) {
+                            //     sellIdx = i;
+                            //     sellPrice = buyPrice * takeProfit;
+                            //     takeProfitTrades += 1;
                             // }
-    
-                            const takeProfit = (1.01 * (1 + ((symObj.earlyRet - 1) / 10))) + 0.00;
-                            if (buyPrice && !sellPrice && bar.h > buyPrice * takeProfit) {
-                                sellPrice = buyPrice * takeProfit;
-                                takeProfitTrades += 1;
-                            }
-    
-                            const stopLoss = 0.95;
-                            if (buyPrice && !sellPrice) {
-                                if (bar.l < stopLoss * buyPrice) {
-                                    sellPrice = stopLoss * buyPrice;
-                                    stopLossTrades += 1;
-                                }
-                            }
+                            // const stopLoss = 0.95;
+                            // if (buyPrice && !sellPrice) {
+                            //     if (bar.l < stopLoss * buyPrice) {
+                            //         sellIdx = i;
+                            //         sellPrice = stopLoss * buyPrice;
+                            //         stopLossTrades += 1;
+                            //     }
+                            // }
                         });
                         if (buyPrice && !sellPrice) {
                             sellPrice = symObj.postBars[symObj.postBars.length - 1].c;
                             endSales += 1;
                             endSaleRatios.push(sellPrice / buyPrice);
+                            sellIdx = symObj.postBars.length - 1;
                         }
                         // -------------------------------------------------------------------------
     
+                        // if (buyPrice) {
+                        //     scores.push(symObj.earlyRet);
+                        //     results.push(Math.max(...symObj.postBars.slice(buyIdx + 1, symObj.postBars.length).map(ele => ele.h)) / buyPrice);
+                        // }
     
+
                         const ratio = buyPrice && sellPrice ? sellPrice / buyPrice : 1;
                         if (ratio > 1) { upTrades += 1} else if (ratio < 1) {downTrades += 1}
                         todayRatios.push(ratio);
                         tradeRatios.push(ratio);
 
-                        if (buyIdx) {
-                            scores.push(symObj.earlyRet);
-                            results.push(ratio);
-                        }
+                        populateDisplayData(symObj.sym, symObj.postBars, maxPriceFractions, buyIdx, sellIdx);
 
                     });
                     const todayRatio = arrAve(todayRatios);
@@ -623,4 +719,30 @@ function getHoursAndMinutes(timestamp) {
     const hours = new Date(timestamp).getHours();
     const minutes = new Date(timestamp).getMinutes();
     return `${hours}-${minutes}`;
+}
+
+function populateDisplayData(sym, bars, buyScores, buyIdx, sellIdx) {
+    const idxs = bars.map((bar, i) => i);
+    const prices = bars.map(bar => bar.c);
+    // const minPrice = Math.min(...prices);
+    // prices.push(0.95 * minPrice);
+    // idxs.push(idxs[idxs.length - 1] + 1);
+    displayData.push({
+        title: sym,
+        leftLabel: "price",
+        rightLabel: "buyScores",
+        red: [sellIdx],
+        green: [buyIdx],
+        data: [
+            idxs,
+            prices,
+            buyScores
+        ]
+    });
+};
+
+function writeDisplayData() {
+    const strToWrite = `const dataString = \`${JSON.stringify(displayData)}\`;
+    window.GRAPHS = JSON.parse(dataString);`;
+    fs.writeFileSync("./display/data.js", strToWrite);
 }

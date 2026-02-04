@@ -10,6 +10,7 @@ const container = document.getElementById("graphs");
 const COLORS = [
   "#7dd3fc", // default bars (series 1)
   "#a7f3d0", // series 2
+  // "rgba(0, 0, 0, 0)", // series 2
   "#fda4af", // series 3
   "#c4b5fd", // series 4
   "#fde68a", // series 5

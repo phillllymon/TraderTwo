@@ -35,17 +35,17 @@ let openOrders = [];
 
 // --------- main ---------
 
-// iteration();
-// setInterval(iteration, 60000);
+iteration();
+setInterval(iteration, 60000);
 
-bracketBuy({
-    sym: "GOOG",
-    num: 10,
-    stopLimitPrice: 50,
-    takeProfitPrice: 1000
-}).then((res) => {
-    console.log(res);
-});
+// bracketBuy({
+//     sym: "GOOG",
+//     num: 10,
+//     stopLimitPrice: 50,
+//     takeProfitPrice: 1000
+// }).then((res) => {
+//     console.log(res);
+// });
 
 // ------- end main -------
 
@@ -54,10 +54,12 @@ function runPostMarket() {};
 function runPreMarket() {};
 
 function startPostMarket() {
+    console.log("deleting open orders");
     openOrders.forEach((orderId) => {
         deleteOrder(orderId);
     });
     setTimeout(() => {
+        console.log("selling remaining positions");
         Object.keys(own).forEach((sym) => {
             const numToSell = own[sym].num;
             sell({
@@ -72,7 +74,7 @@ function runPostTrading() {
         const trackingSyms = symObjs.map(obj => obj.sym);
         snapshot.tickers.forEach((ticker) => {
             // only need to monitor top syms now
-            if (trackingSyms.includes(ticker.ticker) && ticker.min && ticker.min.v > 0.5 * (minPreVol / 30)) {
+            if (trackingSyms.includes(ticker.ticker) && ticker.min) {
                 bigData[ticker.ticker].push({
                     t: ticker.min.t,
                     c: ticker.min.c,
@@ -95,7 +97,7 @@ function startPostTrading() {
     fetchCurrentMarketSnapshot().then((snapshot) => {
         const syms = Object.keys(bigData);
         snapshot.tickers.forEach((ticker) => {
-            if (syms.includes(ticker.ticker) && ticker.min && ticker.min.v > 0.5 * (minPreVol / 30)) {
+            if (syms.includes(ticker.ticker) && ticker.min) {
                 bigData[ticker.ticker].push({
                     t: ticker.min.t,
                     c: ticker.min.c,
@@ -137,7 +139,7 @@ function runPreTrading() {
     fetchCurrentMarketSnapshot().then((snapshot) => {
         const syms = Object.keys(bigData);
         snapshot.tickers.forEach((ticker) => {
-            if (syms.includes(ticker.ticker) && ticker.min && ticker.min.v > 0.5 * (minPreVol / 30)) {
+            if (syms.includes(ticker.ticker) && ticker.min) {
                 bigData[ticker.ticker].push(packageTicker(ticker));
             }
         });
@@ -167,6 +169,8 @@ function iteration() {
     const todayTenTimestamp = nyLocalToUtcMs(todayStr, 10, 0);
     const todayCloseTimestamp = nyLocalToUtcMs(todayStr, 15, 55);
 
+    console.log(todayISOString);
+
     let newStatus = "preMarket";
     if (nowTimestamp > todayOpenTimestamp) {
         newStatus = "preTrading";
@@ -179,7 +183,6 @@ function iteration() {
     }
 
     if (newStatus !== status) {
-        console.log(todayISOString);
         console.log(`Entering ${newStatus}`);
         status = newStatus;
         if (status === "preMarket") {

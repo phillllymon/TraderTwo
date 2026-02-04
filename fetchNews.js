@@ -1,7 +1,4 @@
-const CREDS = {
-    key: "PKPA7J8H8SNBQK91G930",
-    secret: "bXMwHT9rXRXSCOXw9WjsaOKOBPP6VfRwk8caMNhs"
-};
+const { CREDS } = require("./CREDS");
 
 // let newsSoFar = [];
 function fetchNews(theSyms, startDate, endDate, pageToken = false, newsSoFar) {
